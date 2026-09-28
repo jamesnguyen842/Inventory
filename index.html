@@ -75,33 +75,28 @@
 </div>
 
 <script>
-    // 1. Cấu hình Supabase Client
-    const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co'; //[cite: 5]
-    const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw'; //[cite: 3]
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); //[cite: 3, 5]
+    const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // 2. Fetch API 100% từ Supabase
     async function fetchAndProcessData() {
         try {
-            // Khởi tạo các Request kéo data thô từ 4 bảng trên Database //[cite: 2, 3]
-            const reqSupabaseOnhand = supabaseClient.from('stock_onhand').select('*'); //[cite: 2]
-            const reqSupabaseIntransit = supabaseClient.from('in_transit').select('*'); //[cite: 2]
-            const reqSupabaseSellPlan = supabaseClient.from('sell_out_plan').select('*').eq('plan_month', 9); //[cite: 2]
-            const reqSupabaseDictionary = supabaseClient.from('sku').select('*'); //[cite: 3]
+            const reqSupabaseOnhand = supabaseClient.from('stock_onhand').select('*');
+            const reqSupabaseIntransit = supabaseClient.from('in_transit').select('*');
+            const reqSupabaseSellPlan = supabaseClient.from('sell_out_plan').select('*').eq('plan_month', 9);
+            const reqSupabaseDictionary = supabaseClient.from('sku').select('*');
 
-            // Đồng loạt gọi 4 luồng data thô để tối ưu tốc độ //[cite: 3]
             const [
                 { data: stockOnhand }, 
                 { data: inTransit }, 
                 { data: sellOutPlan }, 
                 { data: dictionaryData }
-            ] = await Promise.all([reqSupabaseOnhand, reqSupabaseIntransit, reqSupabaseSellPlan, reqSupabaseDictionary]); //[cite: 2, 3]
+            ] = await Promise.all([reqSupabaseOnhand, reqSupabaseIntransit, reqSupabaseSellPlan, reqSupabaseDictionary]);
 
-            // 3. Xây dựng Object từ điển (Dictionary Mapping) //[cite: 3]
             const skuDict = {}; 
             if (dictionaryData) {
                 dictionaryData.forEach(row => {
-                    skuDict[row.sku_code] = row.standard_name || row.description_wh || row.sku_code; //[cite: 3]
+                    skuDict[row.sku_code] = row.standard_name || row.description_wh || row.sku_code;
                 });
             }
 
@@ -112,37 +107,34 @@
         }
     }
 
-    // A. Logic Form Sum
     function processFormSum(stockOnhand, inTransit, sellOutPlan, skuDict) {
         const tbody = document.querySelector('#form-sum-table tbody');
         const grouped = {};
 
-        // Gom nhóm Tồn kho đầu kỳ và In-transit //[cite: 2]
         (stockOnhand || []).forEach(item => {
             const key = `${item.location}_${item.sku_code}`;
             if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 }; 
-            grouped[key].onhand += item.qty_onhand; //[cite: 2]
+            grouped[key].onhand += item.qty_onhand;
         });
 
         (inTransit || []).forEach(item => {
             const key = `${item.location}_${item.sku_code}`;
             if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 };
-            grouped[key].intransit += item.qty_intransit; //[cite: 2]
+            grouped[key].intransit += item.qty_intransit;
         });
 
-        // Khớp dữ liệu Bán ra //[cite: 2]
         (sellOutPlan || []).forEach(item => {
             const keys = Object.keys(grouped).filter(k => k.includes(item.sku_code));
-            keys.forEach(k => { grouped[k].sellout = item.total_demand || item.qty_sellout || 0; }); //[cite: 2]
+            keys.forEach(k => { grouped[k].sellout = item.total_demand || item.qty_sellout || 0; });
         });
 
         Object.values(grouped).forEach(row => {
-            const productName = skuDict[row.sku] || row.sku; //[cite: 3]
-            const endingInv = row.onhand + row.intransit - row.sellout; //[cite: 2]
+            const productName = skuDict[row.sku] || row.sku;
+            const endingInv = row.onhand + row.intransit - row.sellout;
             
-            let coverday = "N/A"; //[cite: 2]
+            let coverday = "N/A";
             if (row.sellout > 0) {
-                coverday = ((endingInv / row.sellout) * 30).toFixed(1); //[cite: 2]
+                coverday = ((endingInv / row.sellout) * 30).toFixed(1);
             }
 
             const tr = `<tr>
@@ -159,41 +151,37 @@
         });
     }
 
-    // B. Logic Form Detail (Thuật toán Trừ lùi FIFO & Pre-scan MT) //[cite: 2]
     function processFormDetail(stockOnhand, inTransit, sellOutPlan, skuDict) {
         const tbody = document.querySelector('#form-detail-table tbody');
-        const reportDate = new Date("2026-09-30"); //[cite: 2]
+        const reportDate = new Date("2026-09-30");
 
-        // 1. Gộp Lô Hàng từ stock_onhand và in_transit //[cite: 2]
         let batches = [
             ...(stockOnhand || []).map(b => ({...b, type: 'onhand'})),
             ...(inTransit || []).map(b => ({...b, type: 'intransit', qty_onhand: 0}))
         ];
 
-        // 2. Sắp xếp FIFO: location -> sku_code -> expiry_date tăng dần //[cite: 2]
         batches.sort((a, b) => {
             if (a.location !== b.location) return a.location.localeCompare(b.location);
             if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
             return new Date(a.expiry_date) - new Date(b.expiry_date);
         });
 
-        // Map Total_Demand và MT_Demand //[cite: 2]
         let demands = {};
         (sellOutPlan || []).forEach(p => {
             demands[p.sku_code] = { 
-                total: p.total_demand || p.qty_sellout || 0, //[cite: 2]
-                mt: p.mt_demand || 0, //[cite: 2]
+                total: p.total_demand || p.qty_sellout || 0,
+                mt: p.mt_demand || 0,
                 totalAllocated: 0
             };
         });
 
-        // 3. Pre-scan HSD tính MT_Qualified_Stock //[cite: 2]
         let mtQualifiedMap = {};
         let totalStockMap = {};
+        
         batches.forEach(b => {
             let exp = new Date(b.expiry_date);
             let mnf = b.mnf_date ? new Date(b.mnf_date) : new Date(exp.getTime() - 365*24*60*60*1000); 
-            let totalDays = (exp - mnf) / (1000 * 60 * 60 * 24);
+            let totalDays = Math.max((exp - mnf) / (1000 * 60 * 60 * 24), 1); // Tránh chia cho 0
             let currentDays = (exp - new Date()) / (1000 * 60 * 60 * 24);
             let currentPct = Math.round((currentDays / totalDays) * 100);
             
@@ -201,15 +189,14 @@
             totalStockMap[b.sku_code] = (totalStockMap[b.sku_code] || 0) + qty;
             
             if (currentPct >= 60) {
-                mtQualifiedMap[b.sku_code] = (mtQualifiedMap[b.sku_code] || 0) + qty; //[cite: 2]
+                mtQualifiedMap[b.sku_code] = (mtQualifiedMap[b.sku_code] || 0) + qty;
             }
         });
 
-        // 4. Vòng lặp trừ lùi Sell out //[cite: 2]
         batches.forEach(batch => {
-            const productName = skuDict[batch.sku_code] || batch.sku_code; //[cite: 3]
+            const productName = skuDict[batch.sku_code] || batch.sku_code;
             let demandObj = demands[batch.sku_code] || { total: 0, mt: 0, totalAllocated: 0 };
-            let remainingDemand = demandObj.total - demandObj.totalAllocated; //[cite: 2]
+            let remainingDemand = demandObj.total - demandObj.totalAllocated;
             
             let available = (batch.qty_onhand || 0) + (batch.qty_intransit || 0);
             let deducted = 0;
@@ -219,49 +206,49 @@
                 demandObj.totalAllocated += deducted;
             }
 
-            let endingInv = available - deducted; //[cite: 2]
+            let endingInv = available - deducted;
             
             let expDate = new Date(batch.expiry_date);
             let mnfDate = batch.mnf_date ? new Date(batch.mnf_date) : new Date(expDate.getTime() - 365*24*60*60*1000);
-            let totalDays = (expDate - mnfDate) / (1000 * 60 * 60 * 24);
-            let remainingDays = (expDate - reportDate) / (1000 * 60 * 60 * 24); //[cite: 2]
-            let remainingPct = Math.round((remainingDays / totalDays) * 100); //[cite: 2]
+            let totalDays = Math.max((expDate - mnfDate) / (1000 * 60 * 60 * 24), 1); // Tránh chia cho 0
+            let remainingDays = (expDate - reportDate) / (1000 * 60 * 60 * 24);
+            let remainingPct = Math.round((remainingDays / totalDays) * 100);
 
-            let shelfLifeMonths = totalDays / 30; //[cite: 2]
-            let limitStock = demandObj.total * 0.3 * shelfLifeMonths; //[cite: 2]
+            let shelfLifeMonths = totalDays / 30;
+            let limitStock = demandObj.total * 0.3 * shelfLifeMonths;
             
             let skuTotalStock = totalStockMap[batch.sku_code] || 0;
             let skuMtStock = mtQualifiedMap[batch.sku_code] || 0;
             
-            // 5. Cây Logic Cảnh Báo theo thứ tự ưu tiên //[cite: 2]
             let warning = "", action = "", risk = "", rowClass = "";
 
+            // LOGIC ƯU TIÊN SỬA ĐỔI: Kiểm tra Hết hạn và Hết hàng (endingInv === 0) trước các tổng tồn kho
             if (remainingPct <= 0 || expDate <= reportDate) { 
-                warning = "Hết hạn SD"; action = "Cách ly Lô hàng chờ hủy"; risk = "Lô hàng đã chính thức hết HSD"; rowClass = "status-het-han"; //[cite: 2]
-            } 
-            else if (skuTotalStock < demandObj.total) { 
-                warning = "Thiếu hàng"; action = "Lên PO đặt hàng"; risk = "Không đủ hàng bán"; rowClass = "status-thieu-hang"; //[cite: 2]
-            }
-            else if (skuTotalStock >= demandObj.total && skuMtStock < demandObj.mt) { 
-                warning = "Thiếu hàng kênh MT"; action = "Đẩy nhanh tiến độ giao hàng"; risk = "Khách hàng/Siêu thị sẽ lock code"; rowClass = "status-thieu-hang"; //[cite: 2]
-            } 
-            else if (remainingPct >= 10 && remainingPct < 30) { 
-                warning = "Hủy hàng (<30% HSD)"; action = "Cần tính CTKM lớn xả tồn"; risk = "Rủi ro hủy hàng"; rowClass = "status-huy-hang"; //[cite: 2]
-            } 
-            else if (remainingPct >= 30 && remainingPct < 50) { 
-                warning = "Cận date (<50% HSD)"; action = "Cần tính CTKM clear tồn sớm"; risk = "Rủi ro hủy hàng hoặc clear tồn"; rowClass = "status-can-date"; //[cite: 2]
-            } 
-            else if (skuTotalStock > 0 && skuTotalStock < (demandObj.total / 2)) { 
-                warning = "Dưới an toàn"; action = "Đẩy nhanh giao hàng"; risk = "Rủi ro đứt hàng"; rowClass = "status-duoi-an-toan"; //[cite: 2]
-            } 
-            else if (skuTotalStock > limitStock) { 
-                warning = "Vượt nhu cầu"; action = "Giảm PO / Đẩy sale"; risk = "Tồn kho dư thừa"; rowClass = "status-vuot-nhu-cau"; //[cite: 2]
-            } 
-            else if (remainingPct >= 65) { 
-                warning = "An toàn"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-an-toan"; //[cite: 2]
+                warning = "Hết hạn SD"; action = "Cách ly Lô hàng chờ hủy"; risk = "Lô hàng đã chính thức hết HSD"; rowClass = "status-het-han";
             } 
             else if (endingInv === 0) { 
-                warning = "Đã xuất hết"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-xuat-het"; //[cite: 2]
+                warning = "Đã xuất hết"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-xuat-het";
+            } 
+            else if (remainingPct > 0 && remainingPct < 30) { 
+                warning = "Hủy hàng (<30% HSD)"; action = "Cần tính CTKM lớn xả tồn"; risk = "Rủi ro hủy hàng"; rowClass = "status-huy-hang";
+            } 
+            else if (remainingPct >= 30 && remainingPct < 50) { 
+                warning = "Cận date (<50% HSD)"; action = "Cần tính CTKM clear tồn sớm"; risk = "Rủi ro hủy hàng hoặc clear tồn"; rowClass = "status-can-date";
+            } 
+            else if (skuTotalStock < demandObj.total) { 
+                warning = "Thiếu hàng"; action = "Lên PO đặt hàng"; risk = "Không đủ hàng bán"; rowClass = "status-thieu-hang";
+            }
+            else if (skuTotalStock >= demandObj.total && skuMtStock < demandObj.mt) { 
+                warning = "Thiếu hàng kênh MT"; action = "Đẩy nhanh tiến độ giao hàng"; risk = "Khách hàng/Siêu thị sẽ lock code"; rowClass = "status-thieu-hang";
+            } 
+            else if (skuTotalStock > 0 && skuTotalStock < (demandObj.total / 2)) { 
+                warning = "Dưới an toàn"; action = "Đẩy nhanh giao hàng"; risk = "Rủi ro đứt hàng"; rowClass = "status-duoi-an-toan";
+            } 
+            else if (skuTotalStock > limitStock) { 
+                warning = "Vượt nhu cầu"; action = "Giảm PO / Đẩy sale"; risk = "Tồn kho dư thừa"; rowClass = "status-vuot-nhu-cau";
+            } 
+            else if (remainingPct >= 65) { 
+                warning = "An toàn"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-an-toan";
             } 
             else {
                 warning = "Bình thường"; action = "Theo dõi thêm"; risk = "Thấp";
@@ -285,7 +272,6 @@
         });
     }
 
-    // Chạy logic ngay khi trang web tải xong
     window.onload = fetchAndProcessData;
 </script>
 </body>
