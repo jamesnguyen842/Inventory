@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Management - Excel Direct</title>
-    <!-- THAY THẾ SUPABASE BẰNG THƯ VIỆN ĐỌC EXCEL (SHEETJS) -->
+    <title>Inventory Management - Excel Direct & Auth</title>
+    
+    <!-- PHẢI CÓ ĐỦ 2 THƯ VIỆN NÀY -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
         .container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
@@ -29,7 +32,7 @@
 <body>
 
 <div class="container">
-    <h1>Báo Cáo Tồn Kho Động (Từ File Excel)</h1>
+    <h1>Báo Cáo Tồn Kho Động (Bảo mật Auth + Excel)</h1>
 
     <div class="filter-bar">
         <div class="filter-group">
@@ -105,48 +108,81 @@
 </div>
 
 <script>
-    // =====================================================================
-    // 1. CẤU HÌNH LINK FILE EXCEL (.xlsx)
-    // Thay thế các link dưới đây bằng link "Get URL" từ phần Storage của bạn
-    // =====================================================================
-    const EXCEL_URLS = {
-        masterData: "https://didthuazwmuxddlxhkob.supabase.co/storage/v1/object/public/ten_bucket_cua_ban/Master%20data%20product.xlsx",
-        stockOnhand: "https://didthuazwmuxddlxhkob.supabase.co/storage/v1/object/public/ten_bucket_cua_ban/Stock%20onhand.xlsx",
-        inTransit: "https://didthuazwmuxddlxhkob.supabase.co/storage/v1/object/public/ten_bucket_cua_ban/In%20Transit.xlsx",
-        sellOutPlan: "https://didthuazwmuxddlxhkob.supabase.co/storage/v1/object/public/ten_bucket_cua_ban/Sell%20out%20plan.xlsx"
-    };
+    // ==========================================
+    // CẤU HÌNH HỆ THỐNG
+    // ==========================================
+    const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // Điền tên Bucket chứa file Excel của bạn (được phép để Private)
+    const BUCKET_NAME = 'inventory-files'; 
 
     let DB_ONHAND = [];
     let DB_INTRANSIT = [];
     let DB_SELLPLAN = [];
     let DB_MASTER = [];
 
-    // Hàm đọc trực tiếp file Excel từ URL và chuyển thành JSON
+    // ==========================================
+    // HÀM 1: ĐỌC FILE EXCEL BẰNG SHEETJS
+    // ==========================================
     async function fetchExcelData(url) {
         try {
+            if (!url) return [];
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Không thể tải file: " + url);
+            if (!response.ok) throw new Error("Không thể tải file từ URL tạm thời");
             const arrayBuffer = await response.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            // Lấy sheet đầu tiên trong file Excel
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
-            // { raw: false } giúp convert ngày tháng trong Excel thành dạng chuỗi hiển thị được
             return XLSX.utils.sheet_to_json(worksheet, { raw: false });
         } catch (error) {
             console.warn(error.message);
-            return []; // Trả về mảng rỗng nếu file chưa có hoặc bị lỗi
+            return []; 
         }
     }
 
-    async function fetchAndProcessData() {
+    // ==========================================
+    // HÀM 2: XÁC THỰC, LẤY LINK VÀ TẢI DỮ LIỆU
+    // ==========================================
+    async function loginAndFetchData() {
         try {
-            // Tải 4 file Excel cùng lúc
+            // 1. Đăng nhập
+            const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
+                email: 'admin@yourdomain.com', // Điền email của bạn
+                password: 'your-secure-password' // Điền mật khẩu của bạn
+            });
+
+            if (authError) {
+                alert("Đăng nhập thất bại: " + authError.message);
+                return;
+            }
+            console.log("Đăng nhập thành công!", authData.user.email);
+
+            // 2. Hàm hỗ trợ lấy link 60s
+            const getSignedUrl = async (filePath) => {
+                const { data, error } = await supabaseClient.storage
+                    .from(BUCKET_NAME)
+                    .createSignedUrl(filePath, 60); 
+                
+                if (error) throw error;
+                return data.signedUrl;
+            };
+
+            // 3. Lấy link tạm thời cho 4 file (Lưu ý: Tên file phải khớp 100% với tên trên Supabase Storage)
+            const [urlMaster, urlOnhand, urlTransit, urlSellout] = await Promise.all([
+                getSignedUrl('Master data product.xlsx'),
+                getSignedUrl('Stock onhand.xlsx'),
+                getSignedUrl('In Transit.xlsx'),
+                getSignedUrl('Sell out plan.xlsx').catch(() => null) 
+            ]);
+
+            // 4. Đọc file Excel từ link vừa lấy
             const [masterData, stockOnhand, inTransit, sellOutPlan] = await Promise.all([
-                fetchExcelData(EXCEL_URLS.masterData),
-                fetchExcelData(EXCEL_URLS.stockOnhand),
-                fetchExcelData(EXCEL_URLS.inTransit),
-                fetchExcelData(EXCEL_URLS.sellOutPlan)
+                fetchExcelData(urlMaster),
+                fetchExcelData(urlOnhand),
+                fetchExcelData(urlTransit),
+                fetchExcelData(urlSellout)
             ]);
 
             DB_MASTER = masterData;
@@ -154,19 +190,23 @@
             DB_INTRANSIT = inTransit;
             DB_SELLPLAN = sellOutPlan;
 
-            applyFilters();
+            // 5. Bắt đầu tính toán
+            applyFilters(); 
+
         } catch (err) {
-            console.error("Lỗi khi xử lý dữ liệu Excel:", err);
-            alert("Đã xảy ra lỗi khi tải file Excel. Vui lòng kiểm tra lại cấu hình Link.");
+            console.error("Lỗi hệ thống:", err);
+            alert("Lỗi khi tải file. Hãy mở F12 -> Console để xem chi tiết.");
         }
     }
 
+    // ==========================================
+    // HÀM 3: XỬ LÝ LỌC & GIAO DIỆN
+    // ==========================================
     function applyFilters() {
         const categoryFilter = document.getElementById('categoryFilter').value;
         const selectedMonth = parseInt(document.getElementById('monthFilter').value);
         const warningFilter = document.getElementById('warningFilter').value;
         
-        // 1. CHUẨN BỊ TỪ ĐIỂN VÀ LỌC NGÀNH HÀNG
         const skuDict = {}; 
         const allowedCategories = ["Mix", "BiteeZ", "ParteeZ", "Yappy"];
 
@@ -177,13 +217,11 @@
                 : category.startsWith(categoryFilter);
 
             if (isMatch) {
-                // Hỗ trợ cả trường hợp viết hoa/thường ở tiêu đề cột Excel
                 const sku = row.sku_code || row.SKU_CODE || row.SKU;
                 skuDict[sku] = row.product_name || row.Product_Name || row.description || sku;
             }
         });
 
-        // 2. KHỞI TẠO LÔ HÀNG (Ép kiểu số lượng về Number vì đọc từ Excel đôi khi ra String)
         let batches = [
             ...DB_ONHAND.map(b => ({...b, initial_qty: Number(b.qty_onhand || 0)})),
             ...DB_INTRANSIT.map(b => ({...b, initial_qty: Number(b.qty_intransit || 0)}))
@@ -204,7 +242,6 @@
             b.accumulated_deducted = 0; 
         });
 
-        // 3. VÒNG LẶP TIME-TRAVEL FIFO
         let totalDemandsToDate = {}; 
         let selectedMonthDemand = {}; 
 
@@ -234,10 +271,7 @@
             });
         }
 
-        // 4. CHỐT NGÀY BÁO CÁO
         const reportDate = new Date(2026, selectedMonth, 0); 
-
-        // 5. TÍNH TOÁN & GẮN CẢNH BÁO
         const formDetailTbody = document.querySelector('#form-detail-table tbody');
         const formSumTbody = document.querySelector('#form-sum-table tbody');
         formDetailTbody.innerHTML = '';
@@ -334,7 +368,8 @@
         });
     }
 
-    window.onload = fetchAndProcessData;
+    // KÍCH HOẠT QUY TRÌNH KHI TẢI TRANG XONG
+    window.onload = loginAndFetchData;
 </script>
 </body>
 </html>
