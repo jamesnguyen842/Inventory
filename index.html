@@ -3,17 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Management - jamesnguyen842</title>
+    <title>Inventory Management - Cấp cao</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
         .container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         h1, h2 { color: #333; }
         
+        /* Filter Bar Styles */
+        .filter-bar { display: flex; gap: 20px; background-color: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px; align-items: center; }
+        .filter-group { display: flex; flex-direction: column; gap: 5px; }
+        .filter-group label { font-weight: bold; font-size: 14px; color: #495057; }
+        .filter-group select { padding: 8px 12px; border-radius: 4px; border: 1px solid #ced4da; font-size: 14px; min-width: 200px; cursor: pointer; }
+        
         /* Table Styles */
         table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        th { background-color: #007bff; color: white; font-weight: bold; }
+        th { background-color: #007bff; color: white; font-weight: bold; position: sticky; top: 0; }
         
         /* Warning Colors */
         .status-het-han { background-color: #ffcccc; color: #cc0000; font-weight: bold; }
@@ -23,13 +29,49 @@
         .status-duoi-an-toan { background-color: #ffe6b3; color: #cc8800; }
         .status-vuot-nhu-cau { background-color: #e6ccff; color: #6600cc; }
         .status-an-toan { background-color: #ccffcc; color: #006600; }
-        .status-xuat-het { background-color: #f2f2f2; color: #666; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>Báo Cáo Tồn Kho (Tháng 9/2026)</h1>
+    <h1>Báo Cáo Tồn Kho Động</h1>
+
+    <!-- BỘ LỌC TƯƠNG TÁC -->
+    <div class="filter-bar">
+        <div class="filter-group">
+            <label for="categoryFilter">1. Ngành hàng (Product Line)</label>
+            <select id="categoryFilter" onchange="applyFilters()">
+                <option value="All">Tất cả Ngành hàng</option>
+                <option value="Mix">Mix</option>
+                <option value="BiteeZ">BiteeZ</option>
+                <option value="ParteeZ">ParteeZ</option>
+                <option value="Yappy">Yappy VN</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="monthFilter">2. Tháng Báo Cáo (Chốt tồn cuối tháng)</label>
+            <select id="monthFilter" onchange="applyFilters()">
+                <option value="9">Tháng 9 (September)</option>
+                <option value="10">Tháng 10 (October)</option>
+                <option value="11">Tháng 11 (November)</option>
+                <option value="12">Tháng 12 (December)</option>
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="warningFilter">3. Lọc Cảnh báo</label>
+            <select id="warningFilter" onchange="applyFilters()">
+                <option value="All">Tất cả cảnh báo</option>
+                <option value="An toàn">An toàn</option>
+                <option value="Cận date (<50% HSD)">Cận date (<50% HSD)</option>
+                <option value="Hủy hàng (<30% HSD)">Hủy hàng (<30% HSD)</option>
+                <option value="Hết hạn SD">Hết hạn SD</option>
+                <option value="Thiếu hàng">Thiếu hàng</option>
+                <option value="Dưới an toàn">Dưới an toàn</option>
+                <option value="Thiếu hàng kênh MT">Thiếu hàng kênh MT</option>
+                <option value="Vượt nhu cầu">Vượt nhu cầu</option>
+            </select>
+        </div>
+    </div>
 
     <h2>1. Form Sum (Tổng hợp theo Mã sản phẩm)</h2>
     <table id="form-sum-table">
@@ -38,19 +80,16 @@
                 <th>Warehouse</th>
                 <th>Product Code</th>
                 <th>Product Name</th>
-                <th>Stock onhanded</th>
-                <th>In transit</th>
-                <th>Sell out</th>
+                <th>Initial Stock (Onhand + Intransit)</th>
+                <th>Accumulated Sell Out</th>
                 <th>Ending Inventory</th>
-                <th>Stock coverday</th>
+                <th>Stock coverday (Dựa trên nhu cầu tháng)</th>
             </tr>
         </thead>
-        <tbody>
-            <!-- Render by JS -->
-        </tbody>
+        <tbody></tbody>
     </table>
 
-    <h2>2. Form Detail (Chi tiết theo Lô hàng - Thuật toán FIFO)</h2>
+    <h2>2. Form Detail (Chi tiết Thuật toán FIFO & Vòng đời)</h2>
     <table id="form-detail-table">
         <thead>
             <tr>
@@ -58,9 +97,8 @@
                 <th>Product Code</th>
                 <th>Product Name</th>
                 <th>EXP Date</th>
-                <th>Onhanded</th>
-                <th>In transit</th>
-                <th>Sell out (Allocated)</th>
+                <th>Initial Qty</th>
+                <th>Sell out allocated</th>
                 <th>Ending Inv (Lô)</th>
                 <th>Remaining % Shelf-life</th>
                 <th>Warning</th>
@@ -68,9 +106,7 @@
                 <th>Action</th>
             </tr>
         </thead>
-        <tbody>
-            <!-- Render by JS -->
-        </tbody>
+        <tbody></tbody>
     </table>
 </div>
 
@@ -79,199 +115,227 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // Biến toàn cục lưu dữ liệu thô để không phải fetch lại khi đổi Filter
+    let DB_ONHAND = [];
+    let DB_INTRANSIT = [];
+    let DB_SELLPLAN = [];
+    let DB_MASTER = [];
+
+    // Tải dữ liệu 1 lần duy nhất
     async function fetchAndProcessData() {
         try {
-            const reqSupabaseOnhand = supabaseClient.from('stock_onhand').select('*');
-            const reqSupabaseIntransit = supabaseClient.from('in_transit').select('*');
-            const reqSupabaseSellPlan = supabaseClient.from('sell_out_plan').select('*').eq('plan_month', 9);
-            const reqSupabaseDictionary = supabaseClient.from('sku').select('*');
-
+            // Lưu ý: Lấy toàn bộ sell_out_plan (không eq tháng 9 nữa) để giả lập được nhiều tháng
             const [
                 { data: stockOnhand }, 
                 { data: inTransit }, 
                 { data: sellOutPlan }, 
-                { data: dictionaryData }
-            ] = await Promise.all([reqSupabaseOnhand, reqSupabaseIntransit, reqSupabaseSellPlan, reqSupabaseDictionary]);
+                { data: masterData }
+            ] = await Promise.all([
+                supabaseClient.from('stock_onhand').select('*'),
+                supabaseClient.from('in_transit').select('*'),
+                supabaseClient.from('sell_out_plan').select('*'), // Lấy toàn bộ các tháng
+                supabaseClient.from('master_data_product').select('*')
+            ]);
 
-            const skuDict = {}; 
-            if (dictionaryData) {
-                dictionaryData.forEach(row => {
-                    skuDict[row.sku_code] = row.standard_name || row.description_wh || row.sku_code;
-                });
-            }
+            DB_ONHAND = stockOnhand || [];
+            DB_INTRANSIT = inTransit || [];
+            DB_SELLPLAN = sellOutPlan || [];
+            DB_MASTER = masterData || [];
 
-            processFormSum(stockOnhand, inTransit, sellOutPlan, skuDict);
-            processFormDetail(stockOnhand, inTransit, sellOutPlan, skuDict);
+            applyFilters(); // Bắt đầu tính toán và render
         } catch (err) {
             console.error("Lỗi khi fetch dữ liệu:", err);
+            alert("Lỗi tải dữ liệu từ cơ sở dữ liệu!");
         }
     }
 
-    function processFormSum(stockOnhand, inTransit, sellOutPlan, skuDict) {
-        const tbody = document.querySelector('#form-sum-table tbody');
-        const grouped = {};
+    // Hàm lõi: Lọc -> Tính toán FIFO -> Render
+    function applyFilters() {
+        const categoryFilter = document.getElementById('categoryFilter').value;
+        const selectedMonth = parseInt(document.getElementById('monthFilter').value);
+        const warningFilter = document.getElementById('warningFilter').value;
+        
+        // 1. CHUẨN BỊ TỪ ĐIỂN VÀ LỌC NGÀNH HÀNG (Pre-filter)
+        const skuDict = {}; 
+        const allowedCategories = ["Mix", "BiteeZ", "ParteeZ", "Yappy"];
 
-        (stockOnhand || []).forEach(item => {
-            const key = `${item.location}_${item.sku_code}`;
-            if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 }; 
-            grouped[key].onhand += item.qty_onhand;
-        });
-
-        (inTransit || []).forEach(item => {
-            const key = `${item.location}_${item.sku_code}`;
-            if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 };
-            grouped[key].intransit += item.qty_intransit;
-        });
-
-        (sellOutPlan || []).forEach(item => {
-            const keys = Object.keys(grouped).filter(k => k.includes(item.sku_code));
-            keys.forEach(k => { grouped[k].sellout = item.total_demand || item.qty_sellout || 0; });
-        });
-
-        Object.values(grouped).forEach(row => {
-            const productName = skuDict[row.sku] || row.sku;
-            const endingInv = row.onhand + row.intransit - row.sellout;
+        DB_MASTER.forEach(row => {
+            const category = row.category || ""; 
             
-            let coverday = "N/A";
-            if (row.sellout > 0) {
-                coverday = ((endingInv / row.sellout) * 30).toFixed(1);
+            // Nếu chọn "All", cho phép tất cả thuộc 4 nhóm. Nếu chọn cụ thể (VD: BiteeZ), chỉ lấy đúng nhánh đó.
+            const isMatch = categoryFilter === "All" 
+                ? allowedCategories.some(prefix => category.startsWith(prefix))
+                : category.startsWith(categoryFilter);
+
+            if (isMatch) {
+                skuDict[row.sku_code] = row.product_name || row.description || row.sku_code;
             }
-
-            const tr = `<tr>
-                <td>${row.wh}</td>
-                <td>${row.sku}</td>
-                <td>${productName}</td>
-                <td>${row.onhand}</td>
-                <td>${row.intransit}</td>
-                <td>${row.sellout}</td>
-                <td style="${endingInv < 0 ? 'color:red;font-weight:bold' : ''}">${endingInv}</td>
-                <td>${coverday}</td>
-            </tr>`;
-            tbody.innerHTML += tr;
         });
-    }
 
-    function processFormDetail(stockOnhand, inTransit, sellOutPlan, skuDict) {
-        const tbody = document.querySelector('#form-detail-table tbody');
-        const reportDate = new Date("2026-09-30");
-
+        // 2. KHỞI TẠO LÔ HÀNG
         let batches = [
-            ...(stockOnhand || []).map(b => ({...b, type: 'onhand'})),
-            ...(inTransit || []).map(b => ({...b, type: 'intransit', qty_onhand: 0}))
-        ];
+            ...DB_ONHAND.map(b => ({...b, initial_qty: b.qty_onhand})),
+            ...DB_INTRANSIT.map(b => ({...b, initial_qty: b.qty_intransit}))
+        ].filter(b => skuDict[b.sku_code]); // Chỉ đưa vào mảng tính toán các SKU đã vượt qua bộ lọc Ngành hàng
 
+        // Sắp xếp FIFO
         batches.sort((a, b) => {
             if (a.location !== b.location) return a.location.localeCompare(b.location);
             if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
             return new Date(a.expiry_date) - new Date(b.expiry_date);
         });
 
-        let demands = {};
-        (sellOutPlan || []).forEach(p => {
-            demands[p.sku_code] = { 
-                total: p.total_demand || p.qty_sellout || 0,
-                mt: p.mt_demand || 0,
-                totalAllocated: 0
-            };
+        // Đặt QTY hiện hành (sẽ bị trừ lùi qua các tháng)
+        batches.forEach(b => { 
+            b.current_qty = b.initial_qty; 
+            b.accumulated_deducted = 0; 
         });
 
-        let mtQualifiedMap = {};
-        let totalStockMap = {};
-        
-        batches.forEach(b => {
-            let exp = new Date(b.expiry_date);
-            let mnf = b.mnf_date ? new Date(b.mnf_date) : new Date(exp.getTime() - 365*24*60*60*1000); 
-            let totalDays = Math.max((exp - mnf) / (1000 * 60 * 60 * 24), 1); // Tránh chia cho 0
-            let currentDays = (exp - new Date()) / (1000 * 60 * 60 * 24);
-            let currentPct = Math.round((currentDays / totalDays) * 100);
-            
-            let qty = (b.qty_onhand || 0) + (b.qty_intransit || 0);
-            totalStockMap[b.sku_code] = (totalStockMap[b.sku_code] || 0) + qty;
-            
-            if (currentPct >= 60) {
-                mtQualifiedMap[b.sku_code] = (mtQualifiedMap[b.sku_code] || 0) + qty;
+        // 3. VÒNG LẶP TIME-TRAVEL FIFO (Từ tháng 9 đến tháng được chọn)
+        let totalDemandsToDate = {}; // Tính tổng nhu cầu đã trừ từ T9 -> Tháng chọn
+        let selectedMonthDemand = {}; // Nhu cầu riêng của tháng chốt để tính limit/coverday
+
+        for (let m = 9; m <= selectedMonth; m++) {
+            // Lấy kế hoạch bán của tháng m
+            let demandsThisMonth = {};
+            DB_SELLPLAN.filter(p => p.plan_month === m).forEach(p => {
+                demandsThisMonth[p.sku_code] = { 
+                    total: p.total_demand || p.qty_sellout || 0, 
+                    mt: p.mt_demand || 0 
+                };
+            });
+
+            // Ghi nhận nhu cầu của tháng chốt
+            if (m === selectedMonth) {
+                selectedMonthDemand = JSON.parse(JSON.stringify(demandsThisMonth));
             }
-        });
+
+            // Tiến hành trừ lùi FIFO cho tháng m
+            batches.forEach(batch => {
+                if (batch.current_qty <= 0) return; // Lô đã hết hàng, bỏ qua
+                
+                let d = demandsThisMonth[batch.sku_code];
+                if (d && d.total > 0) {
+                    let deductAmount = Math.min(batch.current_qty, d.total);
+                    
+                    batch.current_qty -= deductAmount; // Trừ tồn
+                    batch.accumulated_deducted += deductAmount; // Cộng dồn lượng đã xuất
+                    d.total -= deductAmount; // Hạ nhu cầu để trừ tiếp lô sau
+                    
+                    // Ghi nhận tổng cầu tích lũy (phục vụ Form Sum)
+                    totalDemandsToDate[batch.sku_code] = (totalDemandsToDate[batch.sku_code] || 0) + deductAmount;
+                }
+            });
+        }
+
+        // 4. CHỐT NGÀY BÁO CÁO (Ngày cuối cùng của tháng được chọn)
+        const reportDate = new Date(2026, selectedMonth, 0); // Ví dụ: chọn T11 -> 30/11/2026
+
+        // 5. TÍNH TOÁN FORM DETAIL & GẮN CẢNH BÁO
+        const formDetailTbody = document.querySelector('#form-detail-table tbody');
+        const formSumTbody = document.querySelector('#form-sum-table tbody');
+        formDetailTbody.innerHTML = '';
+        formSumTbody.innerHTML = '';
+
+        let skuSummary = {}; // Gom nhóm dữ liệu cho Form Sum
+        let finalDetailRows = []; // Chứa các dòng đã qua xử lý để lọc Warning
 
         batches.forEach(batch => {
-            const productName = skuDict[batch.sku_code] || batch.sku_code;
-            let demandObj = demands[batch.sku_code] || { total: 0, mt: 0, totalAllocated: 0 };
-            let remainingDemand = demandObj.total - demandObj.totalAllocated;
-            
-            let available = (batch.qty_onhand || 0) + (batch.qty_intransit || 0);
-            let deducted = 0;
+            // LOGIC YÊU CẦU: Ẩn ngay những lô hàng có Tồn cuối = 0 (Đã xuất hết trong các tháng trước)
+            if (batch.current_qty === 0) return; 
 
-            if (remainingDemand > 0) {
-                deducted = Math.min(remainingDemand, available);
-                demandObj.totalAllocated += deducted;
+            // Gom data Form Sum
+            const key = `${batch.location}_${batch.sku_code}`;
+            if (!skuSummary[key]) {
+                skuSummary[key] = { wh: batch.location, sku: batch.sku_code, initial: 0, ending: 0, monthDemand: selectedMonthDemand[batch.sku_code]?.total || 0, accumulatedSellout: 0 };
             }
+            skuSummary[key].initial += batch.initial_qty;
+            skuSummary[key].ending += batch.current_qty;
+            skuSummary[key].accumulatedSellout += batch.accumulated_deducted;
 
-            let endingInv = available - deducted;
-            
+            // Tính toán Vòng đời
             let expDate = new Date(batch.expiry_date);
             let mnfDate = batch.mnf_date ? new Date(batch.mnf_date) : new Date(expDate.getTime() - 365*24*60*60*1000);
-            let totalDays = Math.max((expDate - mnfDate) / (1000 * 60 * 60 * 24), 1); // Tránh chia cho 0
+            let totalDays = Math.max((expDate - mnfDate) / (1000 * 60 * 60 * 24), 1); 
             let remainingDays = (expDate - reportDate) / (1000 * 60 * 60 * 24);
             let remainingPct = Math.round((remainingDays / totalDays) * 100);
 
-            let shelfLifeMonths = totalDays / 30;
-            let limitStock = demandObj.total * 0.3 * shelfLifeMonths;
-            
-            let skuTotalStock = totalStockMap[batch.sku_code] || 0;
-            let skuMtStock = mtQualifiedMap[batch.sku_code] || 0;
-            
+            // Cây Logic Cảnh Báo (Tính trên số liệu còn lại tại tháng chốt)
             let warning = "", action = "", risk = "", rowClass = "";
+            let demandM = selectedMonthDemand[batch.sku_code] || {total: 0, mt: 0};
+            let limitStock = demandM.total > 0 ? (demandM.total * 0.3 * (totalDays/30)) : Infinity;
+            
+            // Để cảnh báo tổng chính xác, ta tính tổng tồn hiện tại của SKU đó
+            let skuTotalCurrent = batches.filter(b => b.sku_code === batch.sku_code).reduce((sum, b) => sum + b.current_qty, 0);
 
-            // LOGIC ƯU TIÊN SỬA ĐỔI: Kiểm tra Hết hạn và Hết hàng (endingInv === 0) trước các tổng tồn kho
             if (remainingPct <= 0 || expDate <= reportDate) { 
-                warning = "Hết hạn SD"; action = "Cách ly Lô hàng chờ hủy"; risk = "Lô hàng đã chính thức hết HSD"; rowClass = "status-het-han";
-            } 
-            else if (endingInv === 0) { 
-                warning = "Đã xuất hết"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-xuat-het";
+                warning = "Hết hạn SD"; action = "Cách ly chờ hủy"; risk = "Mất trắng"; rowClass = "status-het-han";
             } 
             else if (remainingPct > 0 && remainingPct < 30) { 
-                warning = "Hủy hàng (<30% HSD)"; action = "Cần tính CTKM lớn xả tồn"; risk = "Rủi ro hủy hàng"; rowClass = "status-huy-hang";
+                warning = "Hủy hàng (<30% HSD)"; action = "CTKM cực lớn xả tồn"; risk = "Rủi ro hủy hàng"; rowClass = "status-huy-hang";
             } 
             else if (remainingPct >= 30 && remainingPct < 50) { 
-                warning = "Cận date (<50% HSD)"; action = "Cần tính CTKM clear tồn sớm"; risk = "Rủi ro hủy hàng hoặc clear tồn"; rowClass = "status-can-date";
+                warning = "Cận date (<50% HSD)"; action = "CTKM clear tồn sớm"; risk = "Rủi ro clear tồn"; rowClass = "status-can-date";
             } 
-            else if (skuTotalStock < demandObj.total) { 
-                warning = "Thiếu hàng"; action = "Lên PO đặt hàng"; risk = "Không đủ hàng bán"; rowClass = "status-thieu-hang";
+            else if (demandM.total > 0 && skuTotalCurrent < demandM.total) { 
+                warning = "Thiếu hàng"; action = "Lên PO khẩn"; risk = "Đứt hàng"; rowClass = "status-thieu-hang";
             }
-            else if (skuTotalStock >= demandObj.total && skuMtStock < demandObj.mt) { 
-                warning = "Thiếu hàng kênh MT"; action = "Đẩy nhanh tiến độ giao hàng"; risk = "Khách hàng/Siêu thị sẽ lock code"; rowClass = "status-thieu-hang";
+            else if (demandM.total > 0 && skuTotalCurrent > 0 && skuTotalCurrent < (demandM.total / 2)) { 
+                warning = "Dưới an toàn"; action = "Đẩy giao hàng"; risk = "Rủi ro đứt hàng"; rowClass = "status-duoi-an-toan";
             } 
-            else if (skuTotalStock > 0 && skuTotalStock < (demandObj.total / 2)) { 
-                warning = "Dưới an toàn"; action = "Đẩy nhanh giao hàng"; risk = "Rủi ro đứt hàng"; rowClass = "status-duoi-an-toan";
+            else if (demandM.total > 0 && skuTotalCurrent > limitStock) { 
+                warning = "Vượt nhu cầu"; action = "Giảm PO"; risk = "Tồn kho dư thừa"; rowClass = "status-vuot-nhu-cau";
             } 
-            else if (skuTotalStock > limitStock) { 
-                warning = "Vượt nhu cầu"; action = "Giảm PO / Đẩy sale"; risk = "Tồn kho dư thừa"; rowClass = "status-vuot-nhu-cau";
+            else { 
+                warning = "An toàn"; action = "Bán FIFO"; risk = "Thấp"; rowClass = "status-an-toan";
             } 
-            else if (remainingPct >= 65) { 
-                warning = "An toàn"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-an-toan";
-            } 
-            else {
-                warning = "Bình thường"; action = "Theo dõi thêm"; risk = "Thấp";
-            }
 
-            const tr = `<tr class="${rowClass}">
-                <td>${batch.location}</td>
-                <td>${batch.sku_code}</td>
-                <td>${productName}</td>
-                <td>${batch.expiry_date}</td>
-                <td>${batch.qty_onhand || 0}</td>
-                <td>${batch.qty_intransit || 0}</td>
-                <td>${deducted}</td>
-                <td><strong>${endingInv}</strong></td>
-                <td>${remainingPct}%</td>
-                <td>${warning}</td>
-                <td>${risk}</td>
-                <td>${action}</td>
+            // Đẩy vào mảng chờ (chưa vẽ ra DOM vội)
+            finalDetailRows.push({
+                html: `<tr class="${rowClass}">
+                    <td>${batch.location}</td>
+                    <td>${batch.sku_code}</td>
+                    <td>${skuDict[batch.sku_code]}</td>
+                    <td>${batch.expiry_date}</td>
+                    <td>${batch.initial_qty}</td>
+                    <td>${batch.accumulated_deducted}</td>
+                    <td><strong>${batch.current_qty}</strong></td>
+                    <td>${remainingPct}%</td>
+                    <td>${warning}</td>
+                    <td>${risk}</td>
+                    <td>${action}</td>
+                </tr>`,
+                warningLabel: warning
+            });
+        });
+
+        // 6. BỘ LỌC CẢNH BÁO (Post-processing) VÀ VẼ UI FORM DETAIL
+        finalDetailRows.forEach(row => {
+            if (warningFilter === "All" || row.warningLabel.includes(warningFilter)) {
+                formDetailTbody.innerHTML += row.html;
+            }
+        });
+
+        // 7. VẼ UI FORM SUM
+        Object.values(skuSummary).forEach(sum => {
+            let coverday = "N/A";
+            if (sum.monthDemand > 0) {
+                coverday = ((sum.ending / sum.monthDemand) * 30).toFixed(1);
+            }
+            
+            formSumTbody.innerHTML += `<tr>
+                <td>${sum.wh}</td>
+                <td>${sum.sku}</td>
+                <td>${skuDict[sum.sku]}</td>
+                <td>${sum.initial}</td>
+                <td>${sum.accumulatedSellout}</td>
+                <td style="${sum.ending < 0 ? 'color:red;font-weight:bold' : ''}"><strong>${sum.ending}</strong></td>
+                <td>${coverday}</td>
             </tr>`;
-            tbody.innerHTML += tr;
         });
     }
 
+    // Kích hoạt ngay khi trang load
     window.onload = fetchAndProcessData;
 </script>
 </body>
