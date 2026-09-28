@@ -152,7 +152,7 @@
     const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // TÊN BUCKET CHỨA FILE EXCEL (Hãy đảm bảo sửa đúng tên thư mục trên Supabase)
+    // TÊN BUCKET CHỨA FILE EXCEL
     const BUCKET_NAME = 'inventory-files'; 
 
     let DB_ONHAND = [];
@@ -213,59 +213,49 @@
         location.reload(); // Tải lại trang để về màn hình Login
     }
 
-    // Chuyển đổi màn hình
     function showDashboard() {
         document.getElementById('loginScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
     }
 
     // ==========================================
-    // HÀM TẢI FILE EXCEL VÀ XỬ LÝ
+    // HÀM MỚI: TẢI TRỰC TIẾP FILE BẰNG SUPABASE .DOWNLOAD()
     // ==========================================
-    async function fetchExcelData(url) {
+    async function downloadAndParseExcel(filePath) {
         try {
-            if (!url) return [];
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Không thể tải file");
-            const arrayBuffer = await response.arrayBuffer();
+            // Dùng quyền đăng nhập hiện tại để tải thẳng file dưới dạng Blob (Dữ liệu thô)
+            const { data: blob, error } = await supabaseClient.storage
+                .from(BUCKET_NAME)
+                .download(filePath);
+
+            if (error) throw error;
+            if (!blob) return []; // Nếu không có dữ liệu thì trả về mảng rỗng
+
+            // Chuyển dữ liệu Blob sang ArrayBuffer để SheetJS đọc
+            const arrayBuffer = await blob.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const firstSheetName = workbook.SheetNames[0];
             const worksheet = workbook.Sheets[firstSheetName];
+            
+            // Convert thành JSON và trả về
             return XLSX.utils.sheet_to_json(worksheet, { raw: false });
         } catch (error) {
-            console.warn(error.message);
-            return []; 
+            console.warn(`Lỗi khi tải file [${filePath}]:`, error.message);
+            return []; // Lỗi thì trả về mảng rỗng (ví dụ file Sell out chưa có)
         }
     }
 
     async function fetchDataAndRender() {
         const loadingMsg = document.getElementById('loadingMsg');
-        loadingMsg.style.display = 'block'; // Hiện thông báo đang tải
+        loadingMsg.style.display = 'block'; 
 
         try {
-            // Hàm sinh link bảo mật sống 60 giây
-            const getSignedUrl = async (filePath) => {
-                const { data, error } = await supabaseClient.storage
-                    .from(BUCKET_NAME)
-                    .createSignedUrl(filePath, 60); 
-                if (error) throw error;
-                return data.signedUrl;
-            };
-
-            // Lấy link tạm thời (Bắt buộc phải truyền đúng tên file trên Supabase)
-            const [urlMaster, urlOnhand, urlTransit, urlSellout] = await Promise.all([
-                getSignedUrl('Master data product.xlsx').catch(() => null),
-                getSignedUrl('Stock onhand.xlsx').catch(() => null),
-                getSignedUrl('In Transit.xlsx').catch(() => null),
-                getSignedUrl('Sell out plan.xlsx').catch(() => null) 
-            ]);
-
-            // Tải và đọc Excel bằng SheetJS
+            // Kéo song song 4 file cùng lúc không cần tạo URL tạm thời nữa
             const [masterData, stockOnhand, inTransit, sellOutPlan] = await Promise.all([
-                fetchExcelData(urlMaster),
-                fetchExcelData(urlOnhand),
-                fetchExcelData(urlTransit),
-                fetchExcelData(urlSellout)
+                downloadAndParseExcel('Master data product.xlsx'),
+                downloadAndParseExcel('Stock onhand.xlsx'),
+                downloadAndParseExcel('In Transit.xlsx'),
+                downloadAndParseExcel('Sell out plan.xlsx')
             ]);
 
             DB_MASTER = masterData;
@@ -273,18 +263,18 @@
             DB_INTRANSIT = inTransit;
             DB_SELLPLAN = sellOutPlan;
 
-            loadingMsg.style.display = 'none'; // Tải xong, ẩn thông báo
+            loadingMsg.style.display = 'none'; 
             applyFilters(); 
 
         } catch (err) {
             loadingMsg.style.display = 'none';
-            alert("Lỗi khi tải file. Vui lòng kiểm tra lại tên Bucket hoặc File trên Supabase.");
+            alert("Lỗi khi tải file. Vui lòng xem Console (F12) để biết chi tiết.");
             console.error(err);
         }
     }
 
     // ==========================================
-    // HÀM LỌC VÀ HIỂN THỊ DỮ LIỆU
+    // HÀM LỌC VÀ HIỂN THỊ DỮ LIỆU (Giữ nguyên)
     // ==========================================
     function applyFilters() {
         const categoryFilter = document.getElementById('categoryFilter').value;
