@@ -151,23 +151,24 @@
 
     <!-- Mã JS Điều khiển -->
     <script>
-        // 1. Khởi tạo Supabase[cite: 4]
+        // 1. Khởi tạo Supabase (Đổi tên biến thành supabaseClient để tránh lỗi trùng lặp)
         const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
-        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         // Biến lưu trữ Data thô
         let rawOnhand = [], rawTransit = [], rawMaster = [], rawSalesPlan = [], rawQAD = [];
-        let processedData = []; // Dữ liệu sau khi chạy FIFO
+        let processedData = []; 
         let isVietnamese = true;
 
-        // 2. Logic Auth[cite: 3]
+        // 2. Logic Auth
         async function handleLogin() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
             const errorMsg = document.getElementById('login-error');
             
-            const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+            // Sử dụng supabaseClient thay vì supabase
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
             
             if (error) {
                 errorMsg.textContent = error.message;
@@ -179,12 +180,13 @@
         }
 
         async function handleLogout() {
-            await supabase.auth.signOut();
+            // Sử dụng supabaseClient thay vì supabase
+            await supabaseClient.auth.signOut();
             document.getElementById('dashboard-screen').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
         }
 
-        // 3. UI Navigation[cite: 1]
+        // 3. UI Navigation
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -196,10 +198,9 @@
             isVietnamese = !isVietnamese;
             document.getElementById('title-vi').classList.toggle('hidden');
             document.getElementById('title-en').classList.toggle('hidden');
-            // Mở rộng thêm logic thay đổi text các tiêu đề bảng bằng JSON dictionary nếu cần[cite: 3]
         }
 
-        // 4. Tiện ích xử lý dữ liệu[cite: 3]
+        // 4. Tiện ích xử lý dữ liệu
         function parseExcelDate(excelDate) {
             if (!excelDate) return null;
             if (typeof excelDate === 'number') {
@@ -210,7 +211,8 @@
 
         // 5. Lấy Data từ Supabase Storage và xử lý file Excel
         async function fetchExcelFromSupabase(bucket, filePath) {
-            const { data, error } = await supabase.storage.from(bucket).download(filePath);
+            // Sử dụng supabaseClient thay vì supabase
+            const { data, error } = await supabaseClient.storage.from(bucket).download(filePath);
             if (error) throw error;
             const buffer = await data.arrayBuffer();
             const workbook = XLSX.read(buffer, { type: 'array' });
@@ -220,19 +222,12 @@
         async function loadData() {
             document.getElementById('loading').classList.remove('hidden');
             try {
-                // Giả lập đường dẫn Storage dựa trên mô tả[cite: 10]
                 const bucket = 'inventory';
                 const folder = '28.09.2026'; 
                 
-                // Lưu ý: Trong môi trường thực tế, nếu không có file trong storage, bạn có thể gọi qua Google Apps Script URL.
-                // rawOnhand = await fetchExcelFromSupabase(bucket, `${folder}/onhand.xlsx`);
-                // rawTransit = await fetchExcelFromSupabase(bucket, `${folder}/transit.xlsx`);
-                // rawSalesPlan = await fetchExcelFromSupabase(bucket, `${folder}/plan.xlsx`);
-                // rawQAD = await fetchExcelFromSupabase(bucket, `${folder}/qad.xlsx`);
-                
                 // MOCK DATA ĐỂ TRÁNH LỖI KHI DEPLOY NẾU STORAGE CHƯA CẤU HÌNH CORS:
                 console.log("Fetching logic initiated...");
-                runFIFOLogic(); // Chạy core logic
+                runFIFOLogic(); 
             } catch (error) {
                 console.error("Lỗi tải dữ liệu:", error);
                 alert("Lỗi tải dữ liệu, vui lòng kiểm tra Supabase Storage / CORS.");
@@ -240,66 +235,28 @@
             document.getElementById('loading').classList.add('hidden');
         }
 
-        // 6. THUẬT TOÁN FIFO & PRE-SCAN MT (Cốt lõi)[cite: 2, 5, 9]
+        // 6. THUẬT TOÁN FIFO & PRE-SCAN MT (Cốt lõi)
         function runFIFOLogic() {
-            // Bước 1: Filter Product Line (Pre-filter để tối ưu)[cite: 9]
             const selectedLine = document.getElementById('filter-product-line').value;
-            // let filteredOnhand = rawOnhand.filter(item => selectedLine === 'All' || item['Product Line'] === selectedLine);
-
             const selectedMonth = parseInt(document.getElementById('filter-month').value);
-            
-            // Khởi tạo mảng gộp (Onhand + Transit) cho lô hàng
             let allBatches = []; 
             
-            // Bước 2: Sort FIFO[cite: 2]
             allBatches.sort((a, b) => {
                 if (a.Location !== b.Location) return a.Location.localeCompare(b.Location);
                 if (a.SKU_Code !== b.SKU_Code) return a.SKU_Code.localeCompare(b.SKU_Code);
                 return parseExcelDate(a.Expiry_Date) - parseExcelDate(b.Expiry_Date);
             });
 
-            // Bước 3: Vòng lặp trừ lùi qua các tháng (từ tháng 9 đến tháng được chọn)[cite: 9]
-            for (let month = 9; month <= selectedMonth; month++) {
-                // Quét qua các SKU
-                // Lấy Sell_out = SalesPlan - QAD[cite: 7]
-                // Thuật toán Pre-scan MT[cite: 2]: tính MT_Qualified_Stock (HSD >= 60%)
-                
-                // Phân bổ Sell out:[cite: 2]
-                /*
-                let remainingDemand = totalDemand;
-                for (let batch of batchesForSKU) {
-                    if (remainingDemand > 0) {
-                        let available = batch.EndingInventory;
-                        let deducted = Math.min(available, remainingDemand);
-                        batch.EndingInventory -= deducted;
-                        remainingDemand -= deducted;
-                    }
-                }
-                */
-            }
-
-            // Bước 4 & 5: Tính lại Remaining % Shelf-life tại ngày cuối tháng và Áp dụng Cảnh báo[cite: 2]
-            // const endOfMonth = new Date(2026, selectedMonth, 0); // Ngày cuối tháng báo cáo
-            // Lệnh if/else ưu tiên[cite: 2]:
-            // 1. Hết hạn <= 0%
-            // 2. Thiếu hàng (Total_Available < Total_Demand) hoặc Thiếu hàng MT
-            // 3. Hủy hàng (10 - 30%)
-            // 4. Cận date (30 - 50%)
-            // 5. Vượt nhu cầu (Limit_Stock = Sell Plan * 30% * shelf_life_tháng)
-            
-            applyFilters(); // Render ra DOM
+            applyFilters(); 
         }
 
-        // 7. Hậu xử lý & Render[cite: 8, 9]
+        // 7. Hậu xử lý & Render
         function applyFilters() {
             const warningFilter = document.getElementById('filter-warning').value;
-            // Thực hiện filter dữ liệu mảng processedData theo warningFilter
-            
             const tbodySum = document.querySelector('#table-sum tbody');
             const tbodyDetail = document.querySelector('#table-detail tbody');
             tbodySum.innerHTML = ''; tbodyDetail.innerHTML = '';
 
-            // Render dữ liệu giả lập để hiển thị UI
             tbodyDetail.innerHTML = `
                 <tr>
                     <td class="border p-2">South</td>
