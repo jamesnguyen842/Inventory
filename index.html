@@ -4,26 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Management - jamesnguyen842</title>
-    <!-- Import Supabase JS Client -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
         .container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
         h1, h2 { color: #333; }
         
-        #login-section { max-width: 400px; margin: 100px auto; text-align: center; }
-        #login-section input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        #login-section button { width: 100%; padding: 10px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        #login-section button:hover { background-color: #218838; }
-        
-        #dashboard-section { display: none; }
-        .header-actions { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .btn-logout { padding: 8px 16px; background-color: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
-        
+        /* Table Styles */
         table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         th { background-color: #007bff; color: white; font-weight: bold; }
         
+        /* Warning Colors */
         .status-het-han { background-color: #ffcccc; color: #cc0000; font-weight: bold; }
         .status-thieu-hang { background-color: #ff9999; color: #990000; font-weight: bold; }
         .status-huy-hang { background-color: #ffcc99; color: #cc6600; }
@@ -37,164 +29,131 @@
 <body>
 
 <div class="container">
-    <div id="login-section">
-        <h2>Đăng nhập Hệ thống Inventory</h2>
-        <p>Project: jamesnguyen842's Project</p>
-        <input type="email" id="email" placeholder="Email đăng nhập" required>
-        <input type="password" id="password" placeholder="Mật khẩu" required>
-        <button onclick="handleLogin()">Đăng nhập</button>
-        <p id="login-error" style="color: red; display: none;">Sai thông tin đăng nhập!</p>
-    </div>
+    <h1>Báo Cáo Tồn Kho (Tháng 9/2026)</h1>
 
-    <div id="dashboard-section">
-        <div class="header-actions">
-            <h1>Báo Cáo Tồn Kho (Tháng 9/2026)</h1>
-            <button class="btn-logout" onclick="handleLogout()">Đăng xuất</button>
-        </div>
+    <h2>1. Form Sum (Tổng hợp theo Mã sản phẩm)</h2>
+    <table id="form-sum-table">
+        <thead>
+            <tr>
+                <th>Warehouse</th>
+                <th>Product Code</th>
+                <th>Product Name</th>
+                <th>Stock onhanded</th>
+                <th>In transit</th>
+                <th>Sell out</th>
+                <th>Ending Inventory</th>
+                <th>Stock coverday</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Render by JS -->
+        </tbody>
+    </table>
 
-        <h2>1. Form Sum (Tổng hợp theo Mã sản phẩm)</h2>
-        <table id="form-sum-table">
-            <thead>
-                <tr>
-                    <th>Warehouse</th>
-                    <th>Product Code</th>
-                    <th>Product Name</th>
-                    <th>Stock onhanded</th>
-                    <th>In transit</th>
-                    <th>Sell out</th>
-                    <th>Ending Inventory</th>
-                    <th>Stock coverday</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Render by JS -->
-            </tbody>
-        </table>
-
-        <h2>2. Form Detail (Chi tiết theo Lô hàng - Thuật toán FIFO)</h2>
-        <table id="form-detail-table">
-            <thead>
-                <tr>
-                    <th>Warehouse</th>
-                    <th>Product Code</th>
-                    <th>Product Name</th>
-                    <th>EXP Date</th>
-                    <th>Onhanded</th>
-                    <th>In transit</th>
-                    <th>Sell out (Allocated)</th>
-                    <th>Ending Inv (Lô)</th>
-                    <th>Remaining % Shelf-life</th>
-                    <th>Warning</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Render by JS -->
-            </tbody>
-        </table>
-    </div>
+    <h2>2. Form Detail (Chi tiết theo Lô hàng - Thuật toán FIFO)</h2>
+    <table id="form-detail-table">
+        <thead>
+            <tr>
+                <th>Warehouse</th>
+                <th>Product Code</th>
+                <th>Product Name</th>
+                <th>EXP Date</th>
+                <th>Onhanded</th>
+                <th>In transit</th>
+                <th>Sell out (Allocated)</th>
+                <th>Ending Inv (Lô)</th>
+                <th>Remaining % Shelf-life</th>
+                <th>Warning</th>
+                <th>Risk</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Render by JS -->
+        </tbody>
+    </table>
 </div>
 
 <script>
-    // 1. Cấu hình Supabase (Đã sửa tên biến thành supabaseClient)
-    const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw'; // Nhập anon key của bạn vào đây
-    
-    // Sử dụng supabaseClient thay vì supabase
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // 1. Cấu hình Supabase Client
+    const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';[cite: 5]
+    const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';[cite: 3]
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);[cite: 3, 5]
 
-    // 2. Auth Logic
-    async function handleLogin() {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        
-        // Gọi hàm từ supabaseClient
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        
-        if (error) {
-            document.getElementById('login-error').style.display = 'block';
-            document.getElementById('login-error').innerText = error.message;
-        } else {
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('dashboard-section').style.display = 'block';
-            fetchAndProcessData();
-        }
-    }
-
-    async function handleLogout() {
-        await supabaseClient.auth.signOut();
-        window.location.reload();
-    }
-
-    // Kiểm tra session hiện tại
-    supabaseClient.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-            document.getElementById('login-section').style.display = 'none';
-            document.getElementById('dashboard-section').style.display = 'block';
-            fetchAndProcessData();
-        }
-    });
-
-    // 3. Logic Fetch Data & Xử lý
+    // 2. Fetch API 100% từ Supabase
     async function fetchAndProcessData() {
         try {
-            const [ { data: products }, { data: stockOnhand }, { data: inTransit }, { data: sellOutPlan } ] = await Promise.all([
-                supabaseClient.from('products').select('*'),
-                supabaseClient.from('stock_onhand').select('*'),
-                supabaseClient.from('in_transit').select('*'),
-                supabaseClient.from('sell_out_plan').select('*').eq('plan_month', 9) 
-            ]);
+            // Khởi tạo các Request kéo data thô từ 4 bảng trên Database[cite: 2, 3]
+            const reqSupabaseOnhand = supabaseClient.from('stock_onhand').select('*');[cite: 2]
+            const reqSupabaseIntransit = supabaseClient.from('in_transit').select('*');[cite: 2]
+            const reqSupabaseSellPlan = supabaseClient.from('sell_out_plan').select('*').eq('plan_month', 9);[cite: 2]
+            const reqSupabaseDictionary = supabaseClient.from('sku').select('*');[cite: 3]
 
-            processFormSum(products, stockOnhand, inTransit, sellOutPlan);
-            processFormDetail(products, stockOnhand, inTransit, sellOutPlan);
+            // Đồng loạt gọi 4 luồng data thô để tối ưu tốc độ[cite: 3]
+            const [
+                { data: stockOnhand }, 
+                { data: inTransit }, 
+                { data: sellOutPlan }, 
+                { data: dictionaryData }
+            ] = await Promise.all([reqSupabaseOnhand, reqSupabaseIntransit, reqSupabaseSellPlan, reqSupabaseDictionary]);[cite: 2, 3]
+
+            // 3. Xây dựng Object từ điển (Dictionary Mapping)[cite: 3]
+            const skuDict = {};[cite: 3]
+            if (dictionaryData) {
+                dictionaryData.forEach(row => {
+                    // Ưu tiên cột standard_name, nếu không có lấy description_wh hoặc chính mã sku
+                    skuDict[row.sku_code] = row.standard_name || row.description_wh || row.sku_code;[cite: 3]
+                });
+            }
+
+            processFormSum(stockOnhand, inTransit, sellOutPlan, skuDict);
+            processFormDetail(stockOnhand, inTransit, sellOutPlan, skuDict);
         } catch (err) {
             console.error("Lỗi khi fetch dữ liệu:", err);
-            processFormSum([], [], [], []);
-            processFormDetail([], [], [], []);
         }
-    }
-
-    function getProductInfo(products, sku) {
-        if(!products) return { name: sku, shelf_life: 365 };
-        const p = products.find(x => x.sku_code === sku);
-        return p ? { name: p.product_name, shelf_life: p.shelf_life_days } : { name: sku, shelf_life: 365 };
     }
 
     // A. Logic Form Sum
-    function processFormSum(products, stockOnhand, inTransit, sellOutPlan) {
+    function processFormSum(stockOnhand, inTransit, sellOutPlan, skuDict) {
         const tbody = document.querySelector('#form-sum-table tbody');
-        tbody.innerHTML = '';
         const grouped = {};
 
+        // Gom nhóm Tồn kho đầu kỳ và In-transit[cite: 2]
         (stockOnhand || []).forEach(item => {
             const key = `${item.location}_${item.sku_code}`;
-            if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 };
-            grouped[key].onhand += item.qty_onhand;
+            if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 };[cite: 2]
+            grouped[key].onhand += item.qty_onhand;[cite: 2]
         });
 
         (inTransit || []).forEach(item => {
             const key = `${item.location}_${item.sku_code}`;
             if (!grouped[key]) grouped[key] = { wh: item.location, sku: item.sku_code, onhand: 0, intransit: 0, sellout: 0 };
-            grouped[key].intransit += item.qty_intransit;
+            grouped[key].intransit += item.qty_intransit;[cite: 2]
         });
 
+        // Khớp dữ liệu Bán ra[cite: 2]
         (sellOutPlan || []).forEach(item => {
             const keys = Object.keys(grouped).filter(k => k.includes(item.sku_code));
-            keys.forEach(k => { grouped[k].sellout = item.qty_sellout; }); 
+            keys.forEach(k => { grouped[k].sellout = item.total_demand || item.qty_sellout || 0; });[cite: 2]
         });
 
         Object.values(grouped).forEach(row => {
-            const pInfo = getProductInfo(products, row.sku);
-            const endingInv = row.onhand + row.intransit - row.sellout; 
+            const productName = skuDict[row.sku] || row.sku; // Tra cứu nhanh qua Dictionary[cite: 3]
+            const endingInv = row.onhand + row.intransit - row.sellout; // Công thức: Tồn đầu + In-transit - Sell out[cite: 2]
             
-            let coverday = "N/A";
+            // Xử lý bẫy lỗi chia cho 0 nếu Sell out bằng 0[cite: 2]
+            let coverday = "N/A";[cite: 2]
             if (row.sellout > 0) {
-                coverday = ((endingInv / row.sellout) * 30).toFixed(1); 
+                coverday = ((endingInv / row.sellout) * 30).toFixed(1);[cite: 2]
             }
 
             const tr = `<tr>
-                <td>${row.wh}</td><td>${row.sku}</td><td>${pInfo.name}</td>
-                <td>${row.onhand}</td><td>${row.intransit}</td><td>${row.sellout}</td>
+                <td>${row.wh}</td>
+                <td>${row.sku}</td>
+                <td>${productName}</td>
+                <td>${row.onhand}</td>
+                <td>${row.intransit}</td>
+                <td>${row.sellout}</td>
                 <td style="${endingInv < 0 ? 'color:red;font-weight:bold' : ''}">${endingInv}</td>
                 <td>${coverday}</td>
             </tr>`;
@@ -202,49 +161,58 @@
         });
     }
 
-    // B. Logic Form Detail
-    function processFormDetail(products, stockOnhand, inTransit, sellOutPlan) {
+    // B. Logic Form Detail (Thuật toán Trừ lùi FIFO & Pre-scan MT)[cite: 2]
+    function processFormDetail(stockOnhand, inTransit, sellOutPlan, skuDict) {
         const tbody = document.querySelector('#form-detail-table tbody');
-        tbody.innerHTML = '';
-        const reportDate = new Date("2026-09-30"); 
+        const reportDate = new Date("2026-09-30"); // Tính % HSD còn lại tại cuối tháng[cite: 2]
 
+        // 1. Gộp Lô Hàng từ stock_onhand và in_transit[cite: 2]
         let batches = [
             ...(stockOnhand || []).map(b => ({...b, type: 'onhand'})),
             ...(inTransit || []).map(b => ({...b, type: 'intransit', qty_onhand: 0}))
         ];
 
+        // 2. Sắp xếp FIFO: location -> sku_code -> expiry_date tăng dần[cite: 2]
         batches.sort((a, b) => {
             if (a.location !== b.location) return a.location.localeCompare(b.location);
             if (a.sku_code !== b.sku_code) return a.sku_code.localeCompare(b.sku_code);
             return new Date(a.expiry_date) - new Date(b.expiry_date);
         });
 
+        // Map Total_Demand và MT_Demand[cite: 2]
         let demands = {};
         (sellOutPlan || []).forEach(p => {
             demands[p.sku_code] = { 
-                total: p.qty_sellout || 0,
-                mt: p.mt_demand || 0, 
+                total: p.total_demand || p.qty_sellout || 0,[cite: 2]
+                mt: p.mt_demand || 0,[cite: 2]
                 totalAllocated: 0
             };
         });
 
+        // 3. Pre-scan HSD tính MT_Qualified_Stock[cite: 2]
         let mtQualifiedMap = {};
+        let totalStockMap = {};
         batches.forEach(b => {
             let exp = new Date(b.expiry_date);
-            let mnf = new Date(b.mnf_date);
+            let mnf = b.mnf_date ? new Date(b.mnf_date) : new Date(exp.getTime() - 365*24*60*60*1000); // Giả định shelf-life 1 năm nếu thiếu mnf_date
             let totalDays = (exp - mnf) / (1000 * 60 * 60 * 24);
             let currentDays = (exp - new Date()) / (1000 * 60 * 60 * 24);
             let currentPct = Math.round((currentDays / totalDays) * 100);
             
+            let qty = (b.qty_onhand || 0) + (b.qty_intransit || 0);
+            totalStockMap[b.sku_code] = (totalStockMap[b.sku_code] || 0) + qty;
+            
+            // Những lô có % Shelf-life hiện tại từ 60% trở lên sẽ được cộng dồn thành MT_Qualified_Stock[cite: 2]
             if (currentPct >= 60) {
-                mtQualifiedMap[b.sku_code] = (mtQualifiedMap[b.sku_code] || 0) + (b.qty_onhand || 0) + (b.qty_intransit || 0);
+                mtQualifiedMap[b.sku_code] = (mtQualifiedMap[b.sku_code] || 0) + qty;[cite: 2]
             }
         });
 
+        // 4. Vòng lặp trừ lùi Sell out[cite: 2]
         batches.forEach(batch => {
-            const pInfo = getProductInfo(products, batch.sku_code);
+            const productName = skuDict[batch.sku_code] || batch.sku_code;[cite: 3]
             let demandObj = demands[batch.sku_code] || { total: 0, mt: 0, totalAllocated: 0 };
-            let remainingDemand = demandObj.total - demandObj.totalAllocated;
+            let remainingDemand = demandObj.total - demandObj.totalAllocated;[cite: 2]
             
             let available = (batch.qty_onhand || 0) + (batch.qty_intransit || 0);
             let deducted = 0;
@@ -254,44 +222,59 @@
                 demandObj.totalAllocated += deducted;
             }
 
-            let endingInv = available - deducted; 
+            let endingInv = available - deducted; // Tồn cuối kỳ của lô[cite: 2]
             
             let expDate = new Date(batch.expiry_date);
-            let mnfDate = new Date(batch.mnf_date);
+            let mnfDate = batch.mnf_date ? new Date(batch.mnf_date) : new Date(expDate.getTime() - 365*24*60*60*1000);
             let totalDays = (expDate - mnfDate) / (1000 * 60 * 60 * 24);
-            let remainingDays = (expDate - reportDate) / (1000 * 60 * 60 * 24);
-            let remainingPct = Math.round((remainingDays / totalDays) * 100);
+            let remainingDays = (expDate - reportDate) / (1000 * 60 * 60 * 24); // Tính lại tại ngày 30/09[cite: 2]
+            let remainingPct = Math.round((remainingDays / totalDays) * 100);[cite: 2]
 
-            let shelfLifeMonths = totalDays / 30; 
-            let limitStock = demandObj.total * 0.3 * shelfLifeMonths; 
+            // Tính ngưỡng Vượt nhu cầu[cite: 2]
+            let shelfLifeMonths = totalDays / 30;[cite: 2]
+            let limitStock = demandObj.total * 0.3 * shelfLifeMonths;[cite: 2]
             
-            let warning = "", action = "", rowClass = "";
-            let isMTShortage = mtQualifiedMap[batch.sku_code] < demandObj.mt;
+            let skuTotalStock = totalStockMap[batch.sku_code] || 0;
+            let skuMtStock = mtQualifiedMap[batch.sku_code] || 0;
+            
+            // 5. Cây Logic Cảnh Báo theo thứ tự ưu tiên[cite: 2]
+            let warning = "", action = "", risk = "", rowClass = "";
 
-            if (remainingPct <= 0 || expDate <= reportDate) {
-                warning = "Hết hạn SD"; action = "Cách ly Lô hàng chờ hủy"; rowClass = "status-het-han";
-            } else if (endingInv < 0) {
-                warning = "Thiếu hàng"; action = "Lên PO đặt hàng"; rowClass = "status-thieu-hang";
-            } else if (isMTShortage && demandObj.mt > 0) {
-                warning = "Thiếu hàng kênh MT"; action = "Đẩy nhanh tiến độ giao hàng"; rowClass = "status-thieu-hang";
-            } else if (remainingPct >= 10 && remainingPct < 30) {
-                warning = "Hủy hàng (<30%)"; action = "Cần tính CTKM lớn xả tồn"; rowClass = "status-huy-hang";
-            } else if (remainingPct >= 30 && remainingPct < 50) {
-                warning = "Cận date (<50%)"; action = "Cần tính CTKM clear tồn sớm"; rowClass = "status-can-date";
-            } else if (endingInv > 0 && endingInv < (demandObj.total / 2)) { 
-                warning = "Dưới an toàn"; action = "Đẩy nhanh giao hàng / Cân chỉnh"; rowClass = "status-duoi-an-toan";
-            } else if (endingInv > limitStock) {
-                warning = "Vượt nhu cầu"; action = "Giảm PO / Đẩy sale"; rowClass = "status-vuot-nhu-cau";
-            } else if (endingInv === 0) {
-                warning = "Đã xuất hết"; action = "Tiếp tục bán FIFO"; rowClass = "status-xuat-het";
-            } else {
-                warning = "An toàn"; action = "Tiếp tục bán FIFO"; rowClass = "status-an-toan";
+            if (remainingPct <= 0 || expDate <= reportDate) {[cite: 2]
+                warning = "Hết hạn SD"; action = "Cách ly Lô hàng chờ hủy"; risk = "Lô hàng đã chính thức hết HSD"; rowClass = "status-het-han";[cite: 2]
+            } 
+            else if (skuTotalStock < demandObj.total) {[cite: 2]
+                warning = "Thiếu hàng"; action = "Lên PO đặt hàng"; risk = "Không đủ hàng bán"; rowClass = "status-thieu-hang";[cite: 2]
+            }
+            else if (skuTotalStock >= demandObj.total && skuMtStock < demandObj.mt) {[cite: 2]
+                warning = "Thiếu hàng kênh MT"; action = "Đẩy nhanh tiến độ giao hàng"; risk = "Khách hàng/Siêu thị sẽ lock code"; rowClass = "status-thieu-hang";[cite: 2]
+            } 
+            else if (remainingPct >= 10 && remainingPct < 30) {[cite: 2]
+                warning = "Hủy hàng (<30% HSD)"; action = "Cần tính CTKM lớn xả tồn"; risk = "Rủi ro hủy hàng"; rowClass = "status-huy-hang";[cite: 2]
+            } 
+            else if (remainingPct >= 30 && remainingPct < 50) {[cite: 2]
+                warning = "Cận date (<50% HSD)"; action = "Cần tính CTKM clear tồn sớm"; risk = "Rủi ro hủy hàng hoặc clear tồn"; rowClass = "status-can-date";[cite: 2]
+            } 
+            else if (skuTotalStock > 0 && skuTotalStock < (demandObj.total / 2)) {[cite: 2]
+                warning = "Dưới an toàn"; action = "Đẩy nhanh giao hàng"; risk = "Rủi ro đứt hàng"; rowClass = "status-duoi-an-toan";[cite: 2]
+            } 
+            else if (skuTotalStock > limitStock) {[cite: 2]
+                warning = "Vượt nhu cầu"; action = "Giảm PO / Đẩy sale"; risk = "Tồn kho dư thừa"; rowClass = "status-vuot-nhu-cau";[cite: 2]
+            } 
+            else if (remainingPct >= 65) {[cite: 2]
+                warning = "An toàn"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-an-toan";[cite: 2]
+            } 
+            else if (endingInv === 0) {[cite: 2]
+                warning = "Đã xuất hết"; action = "Tiếp tục bán FIFO"; risk = "Không"; rowClass = "status-xuat-het";[cite: 2]
+            } 
+            else {
+                warning = "Bình thường"; action = "Theo dõi thêm"; risk = "Thấp";
             }
 
             const tr = `<tr class="${rowClass}">
                 <td>${batch.location}</td>
                 <td>${batch.sku_code}</td>
-                <td>${pInfo.name}</td>
+                <td>${productName}</td>
                 <td>${batch.expiry_date}</td>
                 <td>${batch.qty_onhand || 0}</td>
                 <td>${batch.qty_intransit || 0}</td>
@@ -299,11 +282,15 @@
                 <td><strong>${endingInv}</strong></td>
                 <td>${remainingPct}%</td>
                 <td>${warning}</td>
+                <td>${risk}</td>
                 <td>${action}</td>
             </tr>`;
             tbody.innerHTML += tr;
         });
     }
+
+    // Chạy logic ngay khi trang web tải xong
+    window.onload = fetchAndProcessData;
 </script>
 </body>
 </html>
