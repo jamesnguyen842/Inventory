@@ -3,23 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Inventory Management - Excel Direct & Auth</title>
+    <title>Inventory Management - Secure Login</title>
     
-    <!-- PHẢI CÓ ĐỦ 2 THƯ VIỆN NÀY -->
+    <!-- THƯ VIỆN BẮT BUỘC -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f6f9; }
-        .container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f4f6f9; }
         h1, h2 { color: #333; }
+        
+        /* GIAO DIỆN ĐĂNG NHẬP */
+        .login-wrapper { display: flex; justify-content: center; align-items: center; min-height: 80vh; }
+        .login-box { background: #fff; padding: 40px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 400px; text-align: center; }
+        .login-box h2 { margin-top: 0; margin-bottom: 20px; color: #007bff; }
+        .login-box input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; font-size: 14px; }
+        .login-box button { width: 100%; padding: 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .login-box button:hover { background-color: #0056b3; }
+        .login-box button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .error-msg { color: #dc3545; background: #f8d7da; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 13px; display: none; }
+
+        /* GIAO DIỆN BÁO CÁO (Ẩn mặc định) */
+        .container { max-width: 1400px; margin: 0 auto; background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); display: none; }
+        
+        .header-top { display: flex; justify-content: space-between; align-items: center; }
+        .logout-btn { padding: 8px 15px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        
         .filter-bar { display: flex; gap: 20px; background-color: #e9ecef; padding: 15px; border-radius: 6px; margin-bottom: 20px; align-items: center; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         .filter-group label { font-weight: bold; font-size: 14px; color: #495057; }
         .filter-group select { padding: 8px 12px; border-radius: 4px; border: 1px solid #ced4da; font-size: 14px; min-width: 200px; cursor: pointer; }
+        
         table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 13px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
         th { background-color: #007bff; color: white; font-weight: bold; position: sticky; top: 0; }
+        
         .status-het-han { background-color: #ffcccc; color: #cc0000; font-weight: bold; }
         .status-thieu-hang { background-color: #ff9999; color: #990000; font-weight: bold; }
         .status-huy-hang { background-color: #ffcc99; color: #cc6600; }
@@ -27,12 +45,31 @@
         .status-duoi-an-toan { background-color: #ffe6b3; color: #cc8800; }
         .status-vuot-nhu-cau { background-color: #e6ccff; color: #6600cc; }
         .status-an-toan { background-color: #ccffcc; color: #006600; }
+        
+        #loadingMsg { font-size: 16px; font-weight: bold; color: #007bff; margin-bottom: 15px; display: none; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>Báo Cáo Tồn Kho Động (Bảo mật Auth + Excel)</h1>
+<!-- MÀN HÌNH ĐĂNG NHẬP -->
+<div class="login-wrapper" id="loginScreen">
+    <div class="login-box">
+        <h2>Đăng nhập Hệ thống</h2>
+        <div id="loginError" class="error-msg"></div>
+        <input type="email" id="emailInput" placeholder="Email đăng nhập" required />
+        <input type="password" id="passwordInput" placeholder="Mật khẩu" required />
+        <button id="loginBtn" onclick="handleLogin()">Đăng nhập</button>
+    </div>
+</div>
+
+<!-- MÀN HÌNH BÁO CÁO CHÍNH -->
+<div class="container" id="mainDashboard">
+    <div class="header-top">
+        <h1>Báo Cáo Tồn Kho Động</h1>
+        <button class="logout-btn" onclick="handleLogout()">Đăng xuất</button>
+    </div>
+
+    <div id="loadingMsg">Đang tải và xử lý dữ liệu từ Excel, vui lòng đợi...</div>
 
     <div class="filter-bar">
         <div class="filter-group">
@@ -109,13 +146,13 @@
 
 <script>
     // ==========================================
-    // CẤU HÌNH HỆ THỐNG
+    // CẤU HÌNH HỆ THỐNG SUPABASE
     // ==========================================
     const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';
     const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    // Điền tên Bucket chứa file Excel của bạn (được phép để Private)
+    // TÊN BUCKET CHỨA FILE EXCEL (Hãy đảm bảo sửa đúng tên thư mục trên Supabase)
     const BUCKET_NAME = 'inventory-files'; 
 
     let DB_ONHAND = [];
@@ -124,13 +161,72 @@
     let DB_MASTER = [];
 
     // ==========================================
-    // HÀM 1: ĐỌC FILE EXCEL BẰNG SHEETJS
+    // KIỂM TRA ĐĂNG NHẬP KHI MỞ TRANG
+    // ==========================================
+    window.onload = async () => {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            // Đã đăng nhập -> Vào thẳng báo cáo
+            showDashboard();
+            fetchDataAndRender();
+        }
+    };
+
+    // ==========================================
+    // HÀM XỬ LÝ ĐĂNG NHẬP TỪ GIAO DIỆN
+    // ==========================================
+    async function handleLogin() {
+        const email = document.getElementById('emailInput').value;
+        const password = document.getElementById('passwordInput').value;
+        const errorDiv = document.getElementById('loginError');
+        const loginBtn = document.getElementById('loginBtn');
+
+        if (!email || !password) {
+            errorDiv.innerText = "Vui lòng nhập đầy đủ Email và Mật khẩu!";
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        errorDiv.style.display = 'none';
+        loginBtn.innerText = "Đang đăng nhập...";
+        loginBtn.disabled = true;
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email: email,
+            password: password
+        });
+
+        if (error) {
+            errorDiv.innerText = "Sai Email hoặc Mật khẩu! (Lỗi: " + error.message + ")";
+            errorDiv.style.display = 'block';
+            loginBtn.innerText = "Đăng nhập";
+            loginBtn.disabled = false;
+        } else {
+            showDashboard();
+            fetchDataAndRender();
+        }
+    }
+
+    // Đăng xuất
+    async function handleLogout() {
+        await supabaseClient.auth.signOut();
+        location.reload(); // Tải lại trang để về màn hình Login
+    }
+
+    // Chuyển đổi màn hình
+    function showDashboard() {
+        document.getElementById('loginScreen').style.display = 'none';
+        document.getElementById('mainDashboard').style.display = 'block';
+    }
+
+    // ==========================================
+    // HÀM TẢI FILE EXCEL VÀ XỬ LÝ
     // ==========================================
     async function fetchExcelData(url) {
         try {
             if (!url) return [];
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Không thể tải file từ URL tạm thời");
+            if (!response.ok) throw new Error("Không thể tải file");
             const arrayBuffer = await response.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const firstSheetName = workbook.SheetNames[0];
@@ -142,42 +238,29 @@
         }
     }
 
-    // ==========================================
-    // HÀM 2: XÁC THỰC, LẤY LINK VÀ TẢI DỮ LIỆU
-    // ==========================================
-    async function loginAndFetchData() {
+    async function fetchDataAndRender() {
+        const loadingMsg = document.getElementById('loadingMsg');
+        loadingMsg.style.display = 'block'; // Hiện thông báo đang tải
+
         try {
-            // 1. Đăng nhập
-            const { data: authData, error: authError } = await supabaseClient.auth.signInWithPassword({
-                email: 'admin@yourdomain.com', // Điền email của bạn
-                password: 'your-secure-password' // Điền mật khẩu của bạn
-            });
-
-            if (authError) {
-                alert("Đăng nhập thất bại: " + authError.message);
-                return;
-            }
-            console.log("Đăng nhập thành công!", authData.user.email);
-
-            // 2. Hàm hỗ trợ lấy link 60s
+            // Hàm sinh link bảo mật sống 60 giây
             const getSignedUrl = async (filePath) => {
                 const { data, error } = await supabaseClient.storage
                     .from(BUCKET_NAME)
                     .createSignedUrl(filePath, 60); 
-                
                 if (error) throw error;
                 return data.signedUrl;
             };
 
-            // 3. Lấy link tạm thời cho 4 file (Lưu ý: Tên file phải khớp 100% với tên trên Supabase Storage)
+            // Lấy link tạm thời (Bắt buộc phải truyền đúng tên file trên Supabase)
             const [urlMaster, urlOnhand, urlTransit, urlSellout] = await Promise.all([
-                getSignedUrl('Master data product.xlsx'),
-                getSignedUrl('Stock onhand.xlsx'),
-                getSignedUrl('In Transit.xlsx'),
+                getSignedUrl('Master data product.xlsx').catch(() => null),
+                getSignedUrl('Stock onhand.xlsx').catch(() => null),
+                getSignedUrl('In Transit.xlsx').catch(() => null),
                 getSignedUrl('Sell out plan.xlsx').catch(() => null) 
             ]);
 
-            // 4. Đọc file Excel từ link vừa lấy
+            // Tải và đọc Excel bằng SheetJS
             const [masterData, stockOnhand, inTransit, sellOutPlan] = await Promise.all([
                 fetchExcelData(urlMaster),
                 fetchExcelData(urlOnhand),
@@ -190,17 +273,18 @@
             DB_INTRANSIT = inTransit;
             DB_SELLPLAN = sellOutPlan;
 
-            // 5. Bắt đầu tính toán
+            loadingMsg.style.display = 'none'; // Tải xong, ẩn thông báo
             applyFilters(); 
 
         } catch (err) {
-            console.error("Lỗi hệ thống:", err);
-            alert("Lỗi khi tải file. Hãy mở F12 -> Console để xem chi tiết.");
+            loadingMsg.style.display = 'none';
+            alert("Lỗi khi tải file. Vui lòng kiểm tra lại tên Bucket hoặc File trên Supabase.");
+            console.error(err);
         }
     }
 
     // ==========================================
-    // HÀM 3: XỬ LÝ LỌC & GIAO DIỆN
+    // HÀM LỌC VÀ HIỂN THỊ DỮ LIỆU
     // ==========================================
     function applyFilters() {
         const categoryFilter = document.getElementById('categoryFilter').value;
@@ -218,7 +302,9 @@
 
             if (isMatch) {
                 const sku = row.sku_code || row.SKU_CODE || row.SKU;
-                skuDict[sku] = row.product_name || row.Product_Name || row.description || sku;
+                if (sku) {
+                    skuDict[sku] = row.product_name || row.Product_Name || row.description || sku;
+                }
             }
         });
 
@@ -367,9 +453,6 @@
             </tr>`;
         });
     }
-
-    // KÍCH HOẠT QUY TRÌNH KHI TẢI TRANG XONG
-    window.onload = loginAndFetchData;
 </script>
 </body>
 </html>
