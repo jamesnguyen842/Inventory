@@ -100,7 +100,7 @@ const CFG = {
 
 let CURRENT_YEAR = CFG.year;
 let ALL_FOLDERS = [];
-let SELECTED_FOLDERS = []; // Chứa danh sách các thư mục user đã chọn
+let SELECTED_FOLDERS = [];
 
 /* ============ ĐA NGÔN NGỮ & ĐỊNH NGHĨA RỦI RO ============ */
 const T = {
@@ -193,7 +193,6 @@ function normLoc(v) {
   return String(v ?? '').trim();
 }
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
-// Quy tắc skipSku: Loại bỏ mã bắt đầu bằng CKCT, MD, QD
 const skipSku = s => { if (!s) return true; const up = String(s).toUpperCase(); return up.startsWith('CKCT') || up.startsWith('MD') || up.startsWith('QD'); };
 
 /* ============ CHUẨN HÓA DỮ LIỆU THÔ ============ */
@@ -233,7 +232,6 @@ function normalize(raw) {
     const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
     const qty = +(r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i)) || 0;
     
-    // Bỏ qua CKCT, MD, QD
     if (skipSku(sku) || !qty) return;
 
     const g = grp(loc, sku);
@@ -284,7 +282,9 @@ function normalize(raw) {
     g.name = (m && m.name) ? m.name : (g.fallbackName || g.sku);
     g.life = m ? m.life : 0; 
   });
-  return [...G.values()];
+  
+  // BỘ LỌC NGAY SAU KHI CHUẨN HÓA DATA: Chỉ lấy đúng 4 ngành hàng
+  return [...G.values()].filter(g => /mix|biteez|parteez|yappy/i.test(String(g.name)));
 }
 
 /* ============ TÍNH TOÁN (FIFO LŨY KẾ) ============ */
@@ -298,7 +298,6 @@ function compute(M, lineFilter, nameFilterStr) {
   const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
 
   DB.forEach(g => {
-    // Sửa Lọc Ngành Hàng: Áp dụng Regex quét vào tên sản phẩm (g.name) theo logic cũ
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
     
@@ -309,7 +308,6 @@ function compute(M, lineFilter, nameFilterStr) {
       lots.sort((a, b) => (a.exp ?? 9e15) - (b.exp ?? 9e15));                  
       
       let so = 0;
-      // LOGIC: Nếu thư mục lấy được là ngày cuối tháng, Sell Out tháng đó = 0
       const eomMonth = SELECTED_FOLDERS.find(f => f.m === m && f.isEOM && f.y === CURRENT_YEAR);
       if (eomMonth) {
           so = 0; 
@@ -428,7 +426,6 @@ async function login() {
     const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
     if (error) throw error;
     
-    // Đăng nhập thành công -> Hiện giao diện nhưng chưa load file
     $('#login').hidden = true; 
     $('#app').hidden = false;
     setLang(lang);
@@ -442,14 +439,13 @@ async function login() {
       const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
       if (m) {
         const d = +m[1], mo = +m[2], y = +m[3];
-        // Tính năng mới: tự động chốt Sell Out = 0 nếu ngày thư mục là ngày cuối cùng của tháng đó
         return { name: i.name, d, m: mo, y, isEOM: d === new Date(y, mo, 0).getDate() };
       }
       return null;
     }).filter(Boolean).sort((a, b) => b.y - a.y || b.m - a.m || b.d - a.d);
 
     $('#dataStatus').textContent = '';
-    addFolderSelect(); // Render select đầu tiên
+    addFolderSelect(); 
   } catch (e) { $('#loginErr').textContent = tt('lerr') + (e.message || e); }
 }
 
@@ -462,7 +458,6 @@ function addFolderSelect() {
   
   const selected = sels.map(name => ALL_FOLDERS.find(f => f.name === name));
   
-  // Kiểm tra trùng tháng
   const monthKeys = selected.map(f => `${f.m}-${f.y}`);
   if (new Set(monthKeys).size !== monthKeys.length) return alert(tt('dupErr'));
   
@@ -471,10 +466,9 @@ function addFolderSelect() {
   
   try {
     const sorted = [...selected].sort((a, b) => a.y - b.y || a.m - b.m || a.d - b.d);
-    const base = sorted[0]; // Earliest cho Onhand & Transit
-    const latest = sorted[sorted.length - 1]; // Latest cho QAD
+    const base = sorted[0]; 
+    const latest = sorted[sorted.length - 1]; 
     
-    // Fetch API kế hoạch
     const res = await fetch(CFG.planUrl, { redirect: 'follow' });
     if (res.ok) {
       const j = await res.json();
@@ -484,7 +478,6 @@ function addFolderSelect() {
     const [master, onhand, transit] = await Promise.all(['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k]).catch(()=>[])));
     const qad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
     
-    // Cập nhật bộ lọc Năm
     const years = [...new Set(selected.map(f => f.y))].sort((a,b)=>b-a);
     $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
     CURRENT_YEAR = years[0] || CFG.year;
