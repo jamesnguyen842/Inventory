@@ -137,14 +137,23 @@ function parseMonth(v) {
   const s = String(v ?? '').trim().toLowerCase(), i = MN.findIndex(m => s.startsWith(m));
   return i >= 0 ? i + 1 : (+s.replace(/\D/g, '') || null);
 }
+
+// Đã viết lại normLoc bằng chuỗi thuần túy để tránh lỗi cú pháp Regex/dấu ngoặc
 function normLoc(v) {
-  const s = String(v ?? '').trim();
-  if (s === '11001' || /^hcmc$/i.test(s) \vert{}\vert{} /^south$/i.test(s)) return 'South';
-  if (s === '15001' || /^hanoi$/i.test(s) \vert{}\vert{} /^north$/i.test(s)) return 'North';
-  return s;
+  const s = String(v ?? '').trim().toLowerCase();
+  if (s === '11001' || s === 'hcmc' || s === 'south') return 'South';
+  if (s === '15001' || s === 'hanoi' || s === 'north') return 'North';
+  return String(v ?? '').trim();
 }
+
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
-const skipSku = s => !s || /^(CKCT|MD|QD)/i.test(s);
+
+// Đã viết lại skipSku bằng chuỗi thuần túy
+function skipSku(s) {
+  if (!s) return true;
+  const up = String(s).toUpperCase();
+  return up.startsWith('CKCT') || up.startsWith('MD') || up.startsWith('QD');
+}
 
 /* ============ CHUẨN HÓA DỮ LIỆU THÔ ============ */
 function normalize(raw) {
@@ -180,8 +189,8 @@ function normalize(raw) {
     const sku = cleanSku(r['Item Code_QAD']), loc = normLoc(r.Location), qty = +r['In transit_Qty'] || 0;
     const eta = parseExcelDate(r.ETA_Date); if (skipSku(sku) || !qty || !eta) return;
     const g = grp(loc, sku); let exp = parseExcelDate(r.Expiry_Date), est = false;
-    if (!exp && life(sku)) { exp = addMonths(eta, life(sku)); est = true; }   // EXP trống -> ước tính
-    const mnf = exp && life(sku) ? addMonths(exp, -life(sku)) : null;         // transit không có MNF
+    if (!exp && life(sku)) { exp = addMonths(eta, life(sku)); est = true; }   
+    const mnf = exp && life(sku) ? addMonths(exp, -life(sku)) : null;         
     g.tr.push({ exp, mnf, qty, est, m: monthOf(eta) });
   });
   const plans = Array.isArray(raw.plan) ? raw.plan : (raw.plan?.salesplan || raw.plan?.data || []);
@@ -193,12 +202,11 @@ function normalize(raw) {
   raw.qad.forEach(r => {
     const sku = cleanSku(r['Item Number']), t = parseExcelDate(r['Invoice Date']), q = +r['Qty Invoiced'] || 0; if (skipSku(sku) || !t) return;
     const m = master.get(sku), u = String(r['Unit of Measure'] ?? '').trim();
-    const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;                           // quy đổi về thùng
+    const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;                           
     const g = grp(normLoc(r.HQ), sku), mo = monthOf(t);
     g.qad[mo] = (g.qad[mo] || 0) + ctn; if (/^mt$/i.test(String(r['Key Cus'] ?? '').trim())) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
   });
   
-  // Ưu tiên dòng sản phẩm từ onhand, nếu thiếu thì lấy từ master
   G.forEach(g => { const m = master.get(g.sku); if (m) { g.name = m.name; g.life = m.life; g.line = g.line || m.line; } });
   return [...G.values()];
 }
@@ -216,7 +224,7 @@ function compute(M, lineRe) {
     CFG.months.filter(m => m <= M).forEach(m => {
       const begin = sum(lots) - deficit, inn = g.tr.filter(t => t.m === m);
       inn.forEach(t => lots.push({ ...t }));
-      lots.sort((a, b) => (a.exp ?? 9e15) - (b.exp ?? 9e15));                  // FIFO/FEFO theo EXP, null xuống cuối
+      lots.sort((a, b) => (a.exp ?? 9e15) - (b.exp ?? 9e15));                  
       let so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
       let rem = so + deficit;
       for (const l of lots) { if (rem <= 0) break; const t = Math.min(l.qty, rem); l.qty -= t; rem -= t; }
@@ -342,14 +350,13 @@ async function loadReal() {
   const { data: list, error } = await sb.storage.from(CFG.bucket).list('', { limit: 1000 });
   if (error) throw new Error('Không lấy được danh sách thư mục: ' + error.message);
 
-  // Thư mục dạng DD.MM.YYYY của năm báo cáo
   const fs = (list || []).map(i => {
     const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
     return m && +m[3] === CFG.year ? { name: i.name, d: +m[1], m: +m[2] } : null;
   }).filter(Boolean);
 
-  const base = fs.filter(f => f.m === CFG.months[0]).sort((a, b) => b.d - a.d)[0];   // ngày lớn nhất của tháng gốc
-  const latest = [...fs].sort((a, b) => (b.m - a.m) || (b.d - a.d))[0];               // thư mục mới nhất (cho QAD)
+  const base = fs.filter(f => f.m === CFG.months[0]).sort((a, b) => b.d - a.d)[0];   
+  const latest = [...fs].sort((a, b) => (b.m - a.m) || (b.d - a.d))[0];               
   if (!base) throw new Error(`Không có thư mục dữ liệu tháng ${CFG.months[0]}/${CFG.year}`);
 
   const [master, onhand, transit] = await Promise.all(
@@ -369,7 +376,7 @@ async function login() {
     sb = sb || supabase.createClient(CFG.url, CFG.key);
     const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
     if (error) throw error;
-    await loadReal();                                  // lỗi sẽ hiện ở #loginErr vì #app còn đang ẩn
+    await loadReal();                                  
   } catch (e) { $('#loginErr').textContent = tt('lerr') + (e.message || e); }
 }
 
