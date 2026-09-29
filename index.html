@@ -21,6 +21,7 @@ input,select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;bac
 .err{color:#b3261e;min-height:1.2em}
 header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 header h1{font-size:22px;margin:0;flex:1}
+.data-selector {display:flex;gap:8px;padding:14px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;background:var(--ac2)}
 .filters{display:flex;gap:16px;padding:14px 24px;flex-wrap:wrap}
 .filters label{display:grid;gap:3px;min-width:170px;color:var(--mut);font-size:12px}
 .tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line)}
@@ -29,11 +30,11 @@ header h1{font-size:22px;margin:0;flex:1}
 main{padding:16px 24px}
 .wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
 table{border-collapse:collapse;width:100%;white-space:nowrap}
-th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line)}
-th{background:var(--ac2);position:sticky;top:0}
+th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--ac2);position:sticky;top:0;z-index:2}
 td.n{text-align:right;font-variant-numeric:tabular-nums}
 .neg{color:#b3261e;font-weight:600}
-.b{padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid}
+.b{padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid;display:inline-block}
 .ok{color:#1e7a4a;background:#e3f4ea;border-color:#b7e0c6}
 .wt{color:#7a6a12;background:#f8f1cf;border-color:#e6d98b}
 .nr{color:#96570f;background:#fbe9d0;border-color:#efc78f}
@@ -41,7 +42,6 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 .ex{color:#a3201a;background:#f8d7d4;border-color:#e59b95}
 .note{color:var(--mut);margin:0 0 10px}
 .empty{padding:28px;text-align:center;color:var(--mut)}
-#status{padding:0 24px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -61,12 +61,23 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <button id="lvi" class="on">Vi</button><button id="len">En</button>
     <button id="btnOut"></button>
   </header>
+  
+  <div class="data-selector">
+    <span style="font-weight:600;margin-right:8px" data-t="selDate"></span>
+    <div id="folder-container" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <button id="btnAddFolder" type="button" title="Thêm ngày">+</button>
+    <button id="btnLoadData" class="pri" data-t="loadData"></button>
+    <span id="dataStatus" style="font-size:13px;color:var(--mut);margin-left:8px"></span>
+  </div>
+
   <div class="filters">
-    <label><span data-t="line"></span><select id="fLine"></select></label>
+    <label><span data-t="year"></span><select id="fYear"></select></label>
     <label><span data-t="month"></span><select id="fMonth"></select></label>
+    <label><span data-t="line"></span><select id="fLine"></select></label>
+    <label><span data-t="prod"></span><input type="text" id="fProd" placeholder="Gõ tên SP..."></label>
     <label><span data-t="warn"></span><select id="fWarn"></select></label>
   </div>
-  <div id="status"></div>
+  
   <div class="tabs">
     <button data-tab="sum" class="on"></button><button data-tab="det"></button><button data-tab="logic"></button>
   </div>
@@ -87,32 +98,54 @@ const CFG = {
   baseNoPlanUseQad: false
 };
 
-/* ============ ĐA NGÔN NGỮ ============ */
+let CURRENT_YEAR = CFG.year;
+let ALL_FOLDERS = [];
+let SELECTED_FOLDERS = []; // Chứa danh sách các thư mục user đã chọn
+
+/* ============ ĐA NGÔN NGỮ & ĐỊNH NGHĨA RỦI RO ============ */
 const T = {
- vi:{ttl:'Báo cáo tổng hợp tồn kho',line:'Lọc tên sản phẩm',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',sum:'Form sum',det:'Form detail',logic:'Logic',
-  out:'Đăng xuất',loc:'Kho',sku:'SKU',prod:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
+ vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày biến động:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',sum:'Form sum',det:'Form detail',logic:'Logic',
+  out:'Đăng xuất',loc:'Kho',sku:'SKU',prodT:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
-  mon:'Tháng',cond:'Điều kiện',note:'Bộ lọc, tính FIFO lũy kế từ tháng 9 đến tháng đã chọn. Lô có tồn cuối = 0 bị ẩn.',
-  loading:'Đang tải dữ liệu...',demo:'Đang dùng dữ liệu mẫu',loaded:'Đã tải dữ liệu thật',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
-  nSum:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team<br>- Stock coverday: (số tồn kho/ total sell out) * số ngày của tháng đó',
-  nDet:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team'},
- en:{ttl:'Inventory Summary Report',line:'Filter product name',month:'Report month',warn:'Warning',all:'All',sum:'Form sum',det:'Form detail',logic:'Logic',
-  out:'Log out',loc:'Warehouse',sku:'SKU',prod:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
+  mon:'Tháng',cond:'Điều kiện logic',risk:'Chi Tiết Rủi Ro Thực Tế',act:'Hành Động',note:'Bộ lọc, tính FIFO lũy kế. Nếu chọn ngày chốt sổ cuối tháng, Sell Out tháng đó = 0. Lô có tồn = 0 bị ẩn.',
+  wait:'Xin chờ trong giây lát...',reqErr:'Vui lòng chọn ít nhất 1 ngày!',dupErr:'Không được chọn nhiều ngày trong cùng 1 tháng!',loaded:'Đã tải dữ liệu thành công!',
+  loadingFolders:'Đang lấy danh sách ngày...',demo:'Đang dùng dữ liệu mẫu',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
+  nSum:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Bằng 0 nếu ngày chọn là ngày cuối tháng, ngược lại lấy Selling Plan<br>- Stock coverday: (số tồn / total sell out) * số ngày của tháng',
+  nDet:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Bằng 0 nếu ngày chọn là ngày cuối tháng, ngược lại lấy Selling Plan'},
+ en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',sum:'Form sum',det:'Form detail',logic:'Logic',
+  out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
   st:'Status',lot:'Lot status',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
-  mon:'Month',cond:'Condition',note:'Filters and cumulative FIFO from September up to the selected month. Lots with zero ending stock are hidden.',
-  loading:'Loading data...',demo:'Using sample data',loaded:'Live data loaded',lerr:'Login failed: ',est:'Estimated EXP',
-  nSum:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan<br>- Stock coverday: (inventory / total sell out) * days in month',
-  nDet:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan'}
+  mon:'Month',cond:'Logic Condition',risk:'Actual Risk Details',act:'Action',note:'FIFO calculation. End of month sets Sell Out to 0. Empty lots are hidden.',
+  wait:'Please wait a moment...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in the same month!',loaded:'Data loaded successfully!',
+  loadingFolders:'Fetching dates...',demo:'Using sample data',lerr:'Login failed: ',est:'Estimated EXP',
+  nSum:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: 0 if end of month, else Selling Plan<br>- Stock coverday: (inventory / total sell out) * days in month',
+  nDet:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: 0 if end of month, else Selling Plan'}
 };
+
 const ST = {
- SAFE:['An toàn','Safe','ok'], WATCH:['Theo dõi (50–65%)','Watch (50–65%)','wt'], NEAR:['Cận date (<50%)','Near expiry (<50%)','nr'],
- DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp'], EXPIRED:['Hết hạn SD','Expired','ex'], SHORT:['Thiếu hàng','Out of stock','ex'],
- SHORT_MT:['Thiếu hàng kênh MT','MT channel shortage','dp'], BELOW:['Dưới an toàn','Below safety','nr'], OVER:['Vượt nhu cầu','Over demand','wt']
+ SAFE:['An toàn','Safe','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.'],
+ WATCH:['Theo dõi (HSD 50–65%)','Watch (50–65%)','wt', 'Rủi ro dẫn đến bước Cận date (<50% HSD)', 'Yêu cầu tăng cường kế hoạch bán hàng'],
+ NEAR:['Cận date (<50%)','Near expiry (<50%)','nr', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM clear tồn sớm'],
+ DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM lớn xả tồn'],
+ EXPIRED:['Hết hạn SD','Expired','ex', 'Lô hàng đã chính thức hết HSD, không được phép lưu thông trên thị trường.', 'Cách ly Lô hàng chờ hủy'],
+ SHORT:['Thiếu hàng','Out of stock','ex', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Lên PO đặt hàng\nCân chỉnh hàng hóa giữa các kênh và khách hàng'],
+ SHORT_MT:['Thiếu hàng kênh MT','MT channel shortage','dp', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết'],
+ BELOW:['Dưới an toàn','Below safety','nr', 'Rất dễ thiếu hàng nếu Demand vọt lên hoặc PO về trễ.', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết\nCân chỉnh hàng hóa giữa các kênh'],
+ OVER:['Vượt nhu cầu','Over demand','wt', 'Rủi ro tồn đọng hàng dẫn đến trạng thái Theo dõi (HSD 50–65%)', 'Yêu cầu tăng cường kế hoạch bán hàng và cân chỉnh lại PO đặt hàng cho lần kế tiếp'],
+ EMPTY:['Đã xuất hết','Out of batch','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.']
 };
+
 const RULES = [
- ['EXPIRED','%HSD ≤ 0'],['SHORT','Ending SKU < 0'],['SHORT_MT','Ending ≥ Demand && MT_Qualified(≥60%) < MT_Demand'],
- ['DISPOSE','0 < %HSD < 30'],['NEAR','30 ≤ %HSD < 50'],['WATCH','50 ≤ %HSD < 65'],
- ['BELOW','0 ≤ Ending < Sell out/days × 14'],['OVER','Ending > Plan × 30% × Useful Life(month)'],['SAFE','%HSD ≥ 65 && SKU status = ∅']
+ ['EMPTY','Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0', ST.EMPTY[3], ST.EMPTY[4]],
+ ['SAFE','Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', ST.SAFE[3], ST.SAFE[4]],
+ ['NEAR','30% <= %_Remaining_Shelf_Life < 50%', ST.NEAR[3], ST.NEAR[4]],
+ ['DISPOSE','10% <= %_Remaining_Shelf_Life < 30%', ST.DISPOSE[3], ST.DISPOSE[4]],
+ ['EXPIRED','%_Remaining_Shelf_Life <= 0% HOẶC Expiry_Date <= Current_Date', ST.EXPIRED[3], ST.EXPIRED[4]],
+ ['SHORT','Total_SKU_Available_Stock < Total_SKU_Demand\n(Tính tổng tất cả các Lô + In-Transit trong tháng)', ST.SHORT[3], ST.SHORT[4]],
+ ['BELOW','0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\nTồn kho tổng của SKU cuối tháng rơi xuống dưới mức dự phòng an toàn (< 2 tuần bán).', ST.BELOW[3], ST.BELOW[4]],
+ ['SHORT_MT','Total_SKU_Closing_Stock >= Demand NHƯNG MT_Qualified_Stock < MT_Demand\nTổng kho SKU vẫn còn hàng (hoặc còn ở các Lô bị khóa MT HSD<60%)', ST.SHORT_MT[3], ST.SHORT_MT[4]],
+ ['WATCH','50% <= %_Remaining_Shelf_Life <= 65%', ST.WATCH[3], ST.WATCH[4]],
+ ['OVER','Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)', ST.OVER[3], ST.OVER[4]]
 ];
 
 /* ============ TIỆN ÍCH ============ */
@@ -122,7 +155,6 @@ const fmt = n => n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('e
 const MN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 let lang = 'vi', sb = null, DB = null, tab = 'sum';
 
-// Lấy giá trị cột linh hoạt, bỏ qua dấu cách và chữ hoa/thường
 const pick = (r, re) => { 
   if (!r) return undefined;
   const k = Object.keys(r).find(k => re.test(String(k).trim().replace(/\s+/g, ' '))); 
@@ -136,22 +168,14 @@ function parseExcelDate(v) {
   if (v == null || v === '') return null;
   if (v instanceof Date) return isNaN(v) ? null : Date.UTC(v.getFullYear(), v.getMonth(), v.getDate());
   if (typeof v === 'number') return v > 1e10 ? day(v) : day(Math.round((v - 25569) * 864e5));
-  
   const s = String(v).trim();
   let m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  // Sửa: m[1] là Tháng (trừ 1 vì JS đếm từ 0), m[2] là Ngày
   if (m) return Date.UTC(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[1] - 1, +m[2]);
-  
   m = s.match(/^(\d{1,2})[\/\-.\s]([a-zA-Z]{3})(?:[\/\-.\s](\d{2,4}))?$/);
   if (m) {
-    const monthStr = m[2].toLowerCase();
-    const monthIdx = MN.findIndex(mn => monthStr.startsWith(mn));
-    if (monthIdx >= 0) {
-      const yr = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : CFG.year;
-      return Date.UTC(yr, monthIdx, +m[1]);
-    }
+    const monthStr = m[2].toLowerCase(), monthIdx = MN.findIndex(mn => monthStr.startsWith(mn));
+    if (monthIdx >= 0) { const yr = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : CURRENT_YEAR; return Date.UTC(yr, monthIdx, +m[1]); }
   }
-
   const t = Date.parse(s); return isNaN(t) ? null : day(t);
 }
 
@@ -168,15 +192,8 @@ function normLoc(v) {
   if (s === '15001' || s === 'hanoi' || s === 'north') return 'North';
   return String(v ?? '').trim();
 }
-
-// Chuyển toàn bộ SKU về Text chuẩn
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
-
-function skipSku(s) {
-  if (!s) return true;
-  const up = String(s).toUpperCase();
-  return up.startsWith('CKCT') || up.startsWith('MD') || up.startsWith('QD');
-}
+const skipSku = s => { if (!s) return true; const up = String(s).toUpperCase(); return up.startsWith('CKCT') || up.startsWith('MD') || up.startsWith('QD'); };
 
 /* ============ CHUẨN HÓA DỮ LIỆU THÔ ============ */
 function normalize(raw) {
@@ -185,8 +202,7 @@ function normalize(raw) {
     const code = cleanSku(pick(r, /item.*code|sku/i)); if (!code) return;
     master.set(code, {
       name: String(pick(r, /^(tên hh|ten hh|description)/i) ?? '').trim(),
-      line: 'Snack',
-      life: +pick(r, /useful life/i) || 0,
+      line: 'Snack', life: +pick(r, /useful life/i) || 0,
       ea: { 1: +pick(r, /^ea qty #1/i) || 1, 2: +pick(r, /^ea qty #2/i) || 1, 3: +pick(r, /^ea qty #3/i) || 1 }
     });
   });
@@ -195,11 +211,8 @@ function normalize(raw) {
   skuList.forEach(r => {
     const code = cleanSku(pick(r, /item number|sku/i)); if (!code) return;
     const name = String(pick(r, /^(tên|name|desc|product)/i) || Object.values(r)[1] || '').trim();
-    if (master.has(code)) {
-      if (name) master.get(code).name = name;
-    } else {
-      master.set(code, { name, line: 'Snack', life: 0, ea: {1:1,2:1,3:1} });
-    }
+    if (master.has(code)) { if (name) master.get(code).name = name; } 
+    else master.set(code, { name, line: 'Snack', life: 0, ea: {1:1,2:1,3:1} });
   });
 
   const unitMap = {};
@@ -214,37 +227,25 @@ function normalize(raw) {
   };
   const life = s => master.get(s)?.life || 0;
 
-  // LỰA CHỌN CỘT TRỰC TIẾP HOẶC PICK DÙNG REGEX CHO ONHAND
   raw.onhand.forEach(r => {
-    const rawSku = r['SKU_Code'] ?? r['SKU Code'] ?? pick(r, /sku/i);
-    const rawLoc = r['Location'] ?? pick(r, /location|kho/i);
-    const rawQty = r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i);
-
-    const sku = cleanSku(rawSku);
-    const loc = normLoc(rawLoc);
-    const qty = +rawQty || 0;
-
+    const sku = cleanSku(r['SKU_Code'] ?? r['SKU Code'] ?? pick(r, /sku/i));
+    const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
+    const qty = +(r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i)) || 0;
     if (skipSku(sku) || !qty) return;
 
     const g = grp(loc, sku);
-    // THÊM ĐOẠN NÀY: Lấy tên dự phòng từ cột Sort Name hoặc các cột chứa chữ Tên
-    if (!g.fallbackName) {
-      g.fallbackName = String(r['Sort Name'] ?? pick(r, /sort.*name|tên/i) ?? '').trim();
-    }
+    if (!g.fallbackName) g.fallbackName = String(r['Sort Name'] ?? pick(r, /sort.*name|tên/i) ?? '').trim();
     const exp = parseExcelDate(r['Expiry Date'] ?? r['ExpiryDate'] ?? pick(r, /expiry|exp|hsd/i));
     let mnf = parseExcelDate(r['MNF Date'] ?? r['MNFDate'] ?? pick(r, /mnf|mfg|nsx/i));
-
     if (!mnf && exp && life(sku)) mnf = addMonths(exp, -life(sku));
     g.oh.push({ exp, mnf, qty, est: false });
   });
 
-  // Transit
   raw.transit.forEach(r => {
     const sku = cleanSku(r['Item Code_QAD'] ?? pick(r, /item.*code|sku/i));
     const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
     const qty = +(r['In transit_Qty'] ?? pick(r, /transit|số lượng|qty/i)) || 0;
     const eta = parseExcelDate(r['ETA_Date'] ?? pick(r, /eta/i));
-
     if (skipSku(sku) || !qty || !eta) return;
     const g = grp(loc, sku); let exp = parseExcelDate(r['Expiry_Date'] ?? pick(r, /expiry|exp/i)), est = false;
     if (!exp && life(sku)) { exp = addMonths(eta, life(sku)); est = true; }
@@ -252,25 +253,21 @@ function normalize(raw) {
     g.tr.push({ exp, mnf, qty, est, m: monthOf(eta) });
   });
 
-  // Sales plan
   const plans = Array.isArray(raw.plan) ? raw.plan : (raw.plan?.salesplan || raw.plan?.data || []);
   plans.forEach(r => {
     const sku = cleanSku(r['SKU_Code'] ?? pick(r, /sku/i));
     const m = parseMonth(r['Month'] ?? pick(r, /month|tháng/i));
     const q = +(r['Sell Plan'] ?? pick(r, /sell.*plan|plan/i)) || 0;
-
     if (skipSku(sku) || !m) return;
     const g = grp(normLoc(r['Warehouse'] ?? pick(r, /warehouse|kho/i)), sku);
     g.plan[m] = (g.plan[m] || 0) + q;
     if (/^mt$/i.test(String(r['Channel'] ?? pick(r, /channel|kênh/i)).trim())) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
   });
 
-  // QAD
   raw.qad.forEach(r => {
     const sku = cleanSku(r['Item Number'] ?? pick(r, /item.*number|mã/i));
     const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
     const q = +(r['Qty Invoiced'] ?? pick(r, /qty.*invoiced|số lượng/i)) || 0;
-
     if (skipSku(sku) || !t) return;
     const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim();
     const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;
@@ -281,7 +278,7 @@ function normalize(raw) {
 
   G.forEach(g => { 
     const m = master.get(g.sku); 
-    g.name = (m && m.name) ? m.name : (g.fallbackName || g.sku); // Lấy tên dự phòng hoặc SKU
+    g.name = (m && m.name) ? m.name : (g.fallbackName || g.sku);
     g.life = m ? m.life : 0; 
   });
   return [...G.values()];
@@ -292,18 +289,30 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-function compute(M, nameFilterRe) {
-  const end = Date.UTC(CFG.year, M, 0), days = new Date(end).getUTCDate(), out = [];
+function compute(M, lineFilter, nameFilterStr) {
+  const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
+  const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
+  const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
+
   DB.forEach(g => {
-    // Ép kiểu về chuỗi để đảm bảo hàm .test() không bao giờ bị lỗi kể cả khi dữ liệu rỗng
-    if (nameFilterRe && !nameFilterRe.test(String(g.name || ''))) return;
+    if (lineRe && !lineRe.test(String(g.line || ''))) return;
+    if (nameRe && !nameRe.test(String(g.name || ''))) return;
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
     CFG.months.filter(m => m <= M).forEach(m => {
       const begin = sum(lots) - deficit, inn = g.tr.filter(t => t.m === m);
       inn.forEach(t => lots.push({ ...t }));
       lots.sort((a, b) => (a.exp ?? 9e15) - (b.exp ?? 9e15));                  
-      let so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
+      
+      let so = 0;
+      // LOGIC: Nếu thư mục lấy được là ngày cuối tháng, Sell Out tháng đó = 0
+      const eomMonth = SELECTED_FOLDERS.find(f => f.m === m && f.isEOM && f.y === CURRENT_YEAR);
+      if (eomMonth) {
+          so = 0; 
+      } else {
+          so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
+      }
+
       let rem = so + deficit;
       for (const l of lots) { if (rem <= 0) break; const t = Math.min(l.qty, rem); l.qty -= t; rem -= t; }
       deficit = rem;
@@ -332,7 +341,7 @@ function compute(M, nameFilterRe) {
 
 /* ============ HIỂN THỊ ============ */
 const tt = k => T[lang][k];
-const badge = c => c ? `<span class="b ${ST[c][2]}">${esc(ST[c][lang === 'vi' ? 0 : 1])}</span>` : '—';
+const badge = c => c && ST[c] ? `<span class="b ${ST[c][2]}">${esc(ST[c][lang === 'vi' ? 0 : 1])}</span>` : '—';
 const th = (...k) => `<tr>${k.map(x => `<th>${esc(tt(x))}</th>`).join('')}</tr>`;
 const num = (v, neg) => `<td class="n ${neg && v < 0 ? 'neg' : ''}">${fmt(v)}</td>`;
 
@@ -344,79 +353,60 @@ function render() {
   if (!DB) return;
   $('#ttl').textContent = tt('ttl'); document.title = tt('ttl');   $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
   $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
-  const w = $('#fWarn').value, M = +$('#fMonth').value, lv = $('#fLine').value;
+  const w = $('#fWarn').value, M = +$('#fMonth').value;
+  const lv = $('#fLine').value, nv = $('#fProd').value.trim();
   
-  const rows = compute(M, lv === 'ALL' ? null : new RegExp(lv, 'i'));
+  const rows = compute(M, lv, nv);
   
   let h = '';
   if (tab === 'sum') {
     const body = rows.filter(r => passWarn(w, r.sku, r.lots.map(l => l.st))).map(r => {
       const worst = r.lots.length ? r.lots.reduce((a, b) => (b.h ?? 1e9) < (a.h ?? 1e9) ? b : a).st : '';
-      return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td></tr>`;
+      const stKey = r.sku || worst || 'EMPTY';
+      const risk = ST[stKey]?.[3] || '', act = ST[stKey]?.[4] || '';
+      return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
     }).join('');
-    h = body ? `<div class="wrap"><table>${th('loc','sku','prod','lineC','begin','tr','so','end','cov','st')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
+    h = body ? `<div class="wrap"><table>${th('loc','sku','prodT','lineC','begin','tr','so','end','cov','st','risk','act')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } else if (tab === 'det') {
     let body = '';
     rows.forEach(r => r.lots.forEach(l => {
       if (!passWarn(w, r.sku, [l.st]) && !(w === r.sku)) return;
       if (w !== 'ALL' && w !== r.sku && l.st !== w && !(w === 'SAFE' && l.st === 'SAFE' && !r.sku)) return;
+      const stKey = l.st || 'EMPTY';
+      const risk = ST[stKey]?.[3] || '', act = ST[stKey]?.[4] || '';
       const d = x => x ? new Date(x).toISOString().slice(0, 10) : '—';
-      body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td></tr>`;
+      body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
     }));
-    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prod','mnf','exp','qty','hsd','lot','skuSt')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nDet')}</div>` : `<div class="empty">${tt('empty')}</div>`;
+    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nDet')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } else {
-    h = `<div class="wrap"><table>${th('st','cond')}${RULES.map(r => `<tr><td>${badge(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table></div>`;
+    h = `<div class="wrap"><table>${th('st','cond','risk','act')}${RULES.map(r => `<tr><td>${badge(r[0])}</td><td style="white-space:normal;min-width:280px">${esc(r[1]).replace(/\n/g,'<br>')}</td><td style="white-space:normal;min-width:180px">${esc(r[2])}</td><td style="white-space:normal;min-width:220px">${esc(r[3]).replace(/\n/g,'<br>')}</td></tr>`).join('')}</table></div>`;
   }
   $('#view').innerHTML = h;
 }
 
-/* ============ KHỞI TẠO GIAO DIỆN ============ */
+/* ============ KHỞI TẠO GIAO DIỆN & TẢI DỮ LIỆU ============ */
+function setLang(l) {
+  lang = l; $('#lvi').classList.toggle('on', l === 'vi'); $('#len').classList.toggle('on', l === 'en');   $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
+  if(DB) { fillFilters(); render(); }
+}
+
 function fillFilters() {
   const curL = $('#fLine').value;
-  const curM = $('#fMonth').value;
   $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ'][i]}</option>`).join('');
-  $('#fMonth').innerHTML = CFG.months.map(m => `<option value="${m}">${tt('mon')} ${m} (${MN[m - 1].replace(/^./, c => c.toUpperCase())})</option>`).join('');
   if (curL) $('#fLine').value = curL;
-  if (curM) $('#fMonth').value = curM;
-  fillWarn();
+  fillMonthDropdown(); fillWarn();
+}
+function fillMonthDropdown() {
+  const curM = $('#fMonth').value;
+  $('#fMonth').innerHTML = CFG.months.map(m => `<option value="${m}">${tt('mon')} ${m} (${MN[m - 1].replace(/^./, c => c.toUpperCase())})</option>`).join('');
+  if (curM && CFG.months.includes(+curM)) $('#fMonth').value = curM;
 }
 function fillWarn() {
   const cur = $('#fWarn').value || 'ALL';
-  $('#fWarn').innerHTML = `<option value="ALL">${tt('all')}</option>` + Object.keys(ST).map(k => `<option value="${k}">${ST[k][lang === 'vi' ? 0 : 1]}</option>`).join('');
+  $('#fWarn').innerHTML = `<option value="ALL">${tt('all')}</option>` + Object.keys(ST).filter(k=>k!=='EMPTY').map(k => `<option value="${k}">${ST[k][lang === 'vi' ? 0 : 1]}</option>`).join('');
   $('#fWarn').value = cur;
 }
-function setLang(l) {
-  lang = l; $('#lvi').classList.toggle('on', l === 'vi'); $('#len').classList.toggle('on', l === 'en');
-  fillFilters(); render();
-}
-function enter(raw, msg) {
-  DB = normalize(raw); $('#login').hidden = true; $('#app').hidden = false;
-  $('#status').textContent = msg; fillFilters(); render();
-}
 
-/* ============ DỮ LIỆU MẪU ============ */
-function demoData() {
-  const U = (y, m, d) => Date.UTC(y, m - 1, d);
-  const mk = (code, name, line, life) => ({ 'Item Code_QAD': code, 'TÊN HH-Vnsese Description': name, 'EA Qty #1 (CT)': 1, 'EA Qty #2 (Pack)': 10, 'EA Qty #3 (Cn)': 40, 'Product Line': line, 'Useful Life(Month': life });
-  const oh = (loc, sku, line, mnf, exp, q) => ({ Location: loc, SKU_Code: sku, 'Product Line': line, 'MNF Date': mnf, 'Expiry Date': exp, 'Q.ty On-Hand': q });
-  const pl = (w, sku, ch, mo, q) => ({ Warehouse: w, 'Product Line': '', SKU_Code: sku, Channel: ch, Month: mo, 'Sell Plan': q });
-  return {
-    master: [mk('110301460001', 'MIX Hot Chili 150g', 'MIX', 12), mk('110301470001', 'BiteeZ Fish Sheet 18g', 'BiteeZ', 9), mk('110301480001', 'Yappy Snack 30g', 'Yappy VN', 12)],
-    onhand: [oh('South', '110301460001', 'MIX', "10/01/2026", "10/01/2027", 400), oh('South', '110301460001', 'MIX', "01/06/2026", "01/06/2027", 300),
-             oh('South', '110301470001', 'BiteeZ', "15-Jan", "15-Oct", 500), oh('North', '110301480001', 'Yappy VN', "01-Mar", "01-Mar-27", 250)],
-    transit: [{ PO_No: 'PO1', Location: 11001, Item_Code: '', 'Item Code_QAD': '110301460001', Expiry_Date: U(2027,9,1), ETA_Date: U(2026,10,20), 'In transit_Qty': 600 },
-              { PO_No: 'PO2', Location: 15001, 'Item Code_QAD': '110301480001', Expiry_Date: null, ETA_Date: U(2026,11,5), 'In transit_Qty': 300 }],
-    qad: [{ 'Item Number': '110301460001-01', 'Unit of Measure': 'CT', 'Qty Invoiced': 350, HQ: 'HCMC', 'Invoice Date': U(2026,9,5), 'Key Cus': 'MT' },
-          { 'Item Number': '110301470001', 'Unit of Measure': 'CT', 'Qty Invoiced': 200, HQ: 'HCMC', 'Invoice Date': U(2026,9,8), 'Key Cus': 'TT' },
-          { 'Item Number': 'CKCT-001', 'Unit of Measure': '%', 'Qty Invoiced': 5, HQ: 'HCMC', 'Invoice Date': U(2026,9,8), 'Key Cus': 'TT' }],
-    plan: [pl('South','110301460001','MT','Oct',300), pl('South','110301460001','TT','Oct',500), pl('South','110301460001','MT','Nov',350), pl('South','110301460001','TT','Nov',500),
-           pl('South','110301470001','TT','Oct',400), pl('South','110301470001','TT','Nov',400), pl('South','110301470001','TT','Dec',400),
-           pl('North','110301480001','TT','Oct',150), pl('North','110301480001','TT','Nov',200), pl('North','110301480001','TT','Dec',200)],
-    unit: []
-  };
-}
-
-/* ============ TẢI DỮ LIỆU THẬT ============ */
 const cache = {};
 async function readXlsx(folder, file) {
   const path = `${folder}/${file}`;
@@ -427,49 +417,115 @@ async function readXlsx(folder, file) {
   return (cache[path] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null }));
 }
 
-async function loadReal() {
-  $('#loginErr').textContent = tt('loading');
-  const { data: list, error } = await sb.storage.from(CFG.bucket).list('', { limit: 1000 });
-  if (error) throw new Error('Không lấy được danh sách thư mục: ' + error.message);
-
-  const fs = (list || []).map(i => {
-    const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-    return m && +m[3] === CFG.year ? { name: i.name, d: +m[1], m: +m[2] } : null;
-  }).filter(Boolean);
-
-  const base = fs.filter(f => f.m === CFG.months[0]).sort((a, b) => b.d - a.d)[0];   
-  const latest = [...fs].sort((a, b) => (b.m - a.m) || (b.d - a.d))[0];               
-  if (!base) throw new Error(`Không có thư mục dữ liệu tháng ${CFG.months[0]}/${CFG.year}`);
-
-  const [master, onhand, transit] = await Promise.all(
-    ['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k])));
-  const qad = await readXlsx(latest.name, CFG.files.qad);
-
-  const res = await fetch(CFG.planUrl, { redirect: 'follow' });
-  if (!res.ok) throw new Error('Apps Script trả về lỗi ' + res.status + '. Nếu lỗi 404, hãy kiểm tra lại URL hoặc chạy bằng tab Ẩn danh.');
-  const j = await res.json();
-  
-  enter({ master, onhand, transit, qad, plan: j['Sales plan'] || [], unit: j['unit'] || [], sku: j['sku'] || [] },
-        `${tt('loaded')} (onhand/transit: ${base.name} · QAD: ${latest.name})`);
-}
-
 async function login() {
   $('#loginErr').textContent = '';
   try {
     sb = sb || supabase.createClient(CFG.url, CFG.key);
     const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
     if (error) throw error;
-    await loadReal();                                  
+    
+    // Đăng nhập thành công -> Hiện giao diện nhưng chưa load file
+    $('#login').hidden = true; 
+    $('#app').hidden = false;
+    setLang(lang);
+    $('#dataStatus').textContent = tt('loadingFolders');
+    $('#view').innerHTML = `<div class="empty">${tt('empty')}</div>`;
+
+    const { data: list, err } = await sb.storage.from(CFG.bucket).list('', { limit: 1000 });
+    if (err) throw new Error('Không lấy được danh sách: ' + err.message);
+
+    ALL_FOLDERS = (list || []).map(i => {
+      const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (m) {
+        const d = +m[1], mo = +m[2], y = +m[3];
+        return { name: i.name, d, m: mo, y, isEOM: d === new Date(y, mo, 0).getDate() };
+      }
+      return null;
+    }).filter(Boolean).sort((a, b) => b.y - a.y || b.m - a.m || b.d - a.d);
+
+    $('#dataStatus').textContent = '';
+    addFolderSelect(); // Render select đầu tiên
   } catch (e) { $('#loginErr').textContent = tt('lerr') + (e.message || e); }
+}
+
+function addFolderSelect() {
+  const sel = document.createElement('select');
+  sel.className = 'folder-sel';
+  sel.innerHTML = '<option value="">-- Chọn ngày --</option>' + ALL_FOLDERS.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+  $('#folder-container').appendChild(sel); }  async function confirmLoadData() {   const sels = $$('.folder-sel').map(s => s.value).filter(Boolean);
+  if (!sels.length) return alert(tt('reqErr'));
+  
+  const selected = sels.map(name => ALL_FOLDERS.find(f => f.name === name));
+  
+  // Kiểm tra trùng tháng
+  const monthKeys = selected.map(f => `${f.m}-${f.y}`);
+  if (new Set(monthKeys).size !== monthKeys.length) return alert(tt('dupErr'));
+  
+  SELECTED_FOLDERS = selected;
+  $('#dataStatus').textContent = tt('wait');
+  
+  try {
+    const sorted = [...selected].sort((a, b) => a.y - b.y || a.m - b.m || a.d - b.d);
+    const base = sorted[0]; // Earliest cho Onhand & Transit
+    const latest = sorted[sorted.length - 1]; // Latest cho QAD
+    
+    // Fetch API kế hoạch
+    const res = await fetch(CFG.planUrl, { redirect: 'follow' });
+    if (res.ok) {
+      const j = await res.json();
+      cache['api_plan'] = j['Sales plan'] || []; cache['api_unit'] = j['unit'] || []; cache['api_sku'] = j['sku'] || [];
+    }
+
+    const [master, onhand, transit] = await Promise.all(['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k]).catch(()=>[])));
+    const qad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
+    
+    // Cập nhật bộ lọc Năm
+    const years = [...new Set(selected.map(f => f.y))].sort((a,b)=>b-a);
+    $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+    CURRENT_YEAR = years[0] || CFG.year;
+    
+    DB = normalize({ master, onhand, transit, qad, plan: cache['api_plan'] || [], unit: cache['api_unit'] || [], sku: cache['api_sku'] || [] });
+    $('#dataStatus').textContent = tt('loaded');
+    
+    fillFilters(); render();
+  } catch (e) {
+    $('#dataStatus').textContent = 'Lỗi: ' + e.message;
+  }
+}
+
+function enterDemo(raw) {
+  SELECTED_FOLDERS = [{name:'30.09.2026', d:30, m:9, y:2026, isEOM:true}];
+  $('#login').hidden = true; $('#app').hidden = false; setLang(lang);
+  $('#dataStatus').textContent = tt('demo');
+  DB = normalize(raw); fillFilters(); render();
 }
 
 /* ============ SỰ KIỆN ============ */
 $('#btnLogin').onclick = login;
 $('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
-$('#btnDemo').onclick = () => enter(demoData(), tt('demo'));
+$('#btnDemo').onclick = () => enterDemo(demoData());
 $('#btnOut').onclick = async () => { try { await sb?.auth.signOut(); } catch (e) {} location.reload(); };
 $('#lvi').onclick = () => setLang('vi'); $('#len').onclick = () => setLang('en');
+$('#btnAddFolder').onclick = addFolderSelect;
+$('#btnLoadData').onclick = confirmLoadData;
+$('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
+$('#fProd').oninput = render;
 ['#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);$$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+
+function demoData() {
+  CURRENT_YEAR = 2026;
+  const U = (y, m, d) => Date.UTC(y, m - 1, d);
+  const mk = (code, name, line, life) => ({ 'Item Code_QAD': code, 'TÊN HH-Vnsese Description': name, 'EA Qty #1 (CT)': 1, 'EA Qty #2 (Pack)': 10, 'EA Qty #3 (Cn)': 40, 'Product Line': line, 'Useful Life(Month': life });
+  const oh = (loc, sku, line, mnf, exp, q) => ({ Location: loc, SKU_Code: sku, 'Product Line': line, 'MNF Date': mnf, 'Expiry Date': exp, 'Q.ty On-Hand': q });
+  const pl = (w, sku, ch, mo, q) => ({ Warehouse: w, 'Product Line': '', SKU_Code: sku, Channel: ch, Month: mo, 'Sell Plan': q });
+  return {
+    master: [mk('110301460001', 'MIX Hot Chili 150g', 'MIX', 12), mk('110301470001', 'BiteeZ Fish Sheet 18g', 'BiteeZ', 9), mk('110301480001', 'Yappy Snack 30g', 'Yappy VN', 12)],
+    onhand: [oh('South', '110301460001', 'MIX', "10/01/2026", "10/01/2027", 400), oh('South', '110301460001', 'MIX', "01/06/2026", "01/06/2027", 300), oh('South', '110301470001', 'BiteeZ', "15-Jan", "15-Oct", 500), oh('North', '110301480001', 'Yappy VN', "01-Mar", "01-Mar-27", 250)],
+    transit: [{ PO_No: 'PO1', Location: 11001, Item_Code: '', 'Item Code_QAD': '110301460001', Expiry_Date: U(2027,9,1), ETA_Date: U(2026,10,20), 'In transit_Qty': 600 }],
+    qad: [{ 'Item Number': '110301460001-01', 'Unit of Measure': 'CT', 'Qty Invoiced': 350, HQ: 'HCMC', 'Invoice Date': U(2026,9,5), 'Key Cus': 'MT' }],
+    plan: [pl('South','110301460001','MT','Oct',300), pl('South','110301460001','TT','Oct',500)], unit: []
+  };
+}
 </script>
 </body>
 </html>
