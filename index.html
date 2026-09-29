@@ -193,6 +193,7 @@ function normLoc(v) {
   return String(v ?? '').trim();
 }
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
+// Quy tắc skipSku: Loại bỏ mã bắt đầu bằng CKCT, MD, QD
 const skipSku = s => { if (!s) return true; const up = String(s).toUpperCase(); return up.startsWith('CKCT') || up.startsWith('MD') || up.startsWith('QD'); };
 
 /* ============ CHUẨN HÓA DỮ LIỆU THÔ ============ */
@@ -231,6 +232,8 @@ function normalize(raw) {
     const sku = cleanSku(r['SKU_Code'] ?? r['SKU Code'] ?? pick(r, /sku/i));
     const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
     const qty = +(r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i)) || 0;
+    
+    // Bỏ qua CKCT, MD, QD
     if (skipSku(sku) || !qty) return;
 
     const g = grp(loc, sku);
@@ -295,7 +298,8 @@ function compute(M, lineFilter, nameFilterStr) {
   const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
 
   DB.forEach(g => {
-    if (lineRe && !lineRe.test(String(g.line || ''))) return;
+    // Sửa Lọc Ngành Hàng: Áp dụng Regex quét vào tên sản phẩm (g.name) theo logic cũ
+    if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
@@ -438,6 +442,7 @@ async function login() {
       const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
       if (m) {
         const d = +m[1], mo = +m[2], y = +m[3];
+        // Tính năng mới: tự động chốt Sell Out = 0 nếu ngày thư mục là ngày cuối cùng của tháng đó
         return { name: i.name, d, m: mo, y, isEOM: d === new Date(y, mo, 0).getDate() };
       }
       return null;
