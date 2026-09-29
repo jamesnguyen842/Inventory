@@ -94,14 +94,14 @@ const T = {
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
   mon:'Tháng',cond:'Điều kiện',note:'Bộ lọc, tính FIFO lũy kế từ tháng 9 đến tháng đã chọn. Lô có tồn cuối = 0 bị ẩn.',
   loading:'Đang tải dữ liệu...',demo:'Đang dùng dữ liệu mẫu',loaded:'Đã tải dữ liệu thật',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
-  nSum:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team<br>- Stock coverday: số tồn kho/ total sell out * số ngày của tháng đó',
+  nSum:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team<br>- Stock coverday: (số tồn kho/ total sell out) * số ngày của tháng đó',
   nDet:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team'},
  en:{ttl:'Inventory Summary Report',line:'Filter product name',month:'Report month',warn:'Warning',all:'All',sum:'Form sum',det:'Form detail',logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prod:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
   st:'Status',lot:'Lot status',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
   mon:'Month',cond:'Condition',note:'Filters and cumulative FIFO from September up to the selected month. Lots with zero ending stock are hidden.',
   loading:'Loading data...',demo:'Using sample data',loaded:'Live data loaded',lerr:'Login failed: ',est:'Estimated EXP',
-  nSum:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan<br>- Stock coverday: inventory / total sell out * days in month',
+  nSum:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan<br>- Stock coverday: (inventory / total sell out) * days in month',
   nDet:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan'}
 };
 const ST = {
@@ -122,18 +122,56 @@ const fmt = n => n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('e
 const MN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
 let lang = 'vi', sb = null, DB = null, tab = 'sum';
 
-const pick = (r, re) => { const k = Object.keys(r).find(k => re.test(String(k).trim())); return k ? r[k] : undefined; };
+const pick = (r, re) => { 
+  if (!r) return undefined;
+  const k = Object.keys(r).find(k => re.test(String(k).trim().replace(/\s+/g, ' '))); 
+  return k ? r[k] : undefined; 
+};
+
 const day = ms => Math.floor(ms / 864e5) * 864e5;
 const addMonths = (ms, n) => { const d = new Date(ms); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate()); };
 
+// Hàm đọc ngày thông minh: Tự nhận diện kiểu MM/DD/YYYY (Tháng đứng trước) và DD/MM/YYYY
 function parseExcelDate(v) {
   if (v == null || v === '') return null;
   if (v instanceof Date) return isNaN(v) ? null : Date.UTC(v.getFullYear(), v.getMonth(), v.getDate());
   if (typeof v === 'number') return v > 1e10 ? day(v) : day(Math.round((v - 25569) * 864e5));
-  const s = String(v).trim(), m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if (m) return Date.UTC(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
+  
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    let p1 = +m[1], p2 = +m[2], yr = +m[3] < 100 ? 2000 + +m[3] : +m[3];
+    let month, dayNum;
+    
+    // Nếu số thứ 2 > 12 -> chắc chắn p2 là Ngày, p1 là Tháng (Dạng MM/DD/YYYY)
+    if (p2 > 12) {
+      month = p1 - 1; dayNum = p2;
+    } 
+    // Nếu số thứ 1 > 12 -> chắc chắn p1 là Ngày, p2 là Tháng (Dạng DD/MM/YYYY)
+    else if (p1 > 12) {
+      month = p2 - 1; dayNum = p1;
+    } 
+    // Mặc định ưu tiên MM/DD/YYYY như định dạng file thực tế
+    else {
+      month = p1 - 1; dayNum = p2;
+    }
+    return Date.UTC(yr, month, dayNum);
+  }
+  
+  // Dạng DD-MMM (vd: 21-Sep)
+  m = s.match(/^(\d{1,2})[\/\-.\s]([a-zA-Z]{3})(?:[\/\-.\s](\d{2,4}))?$/);
+  if (m) {
+    const monthStr = m[2].toLowerCase();
+    const monthIdx = MN.findIndex(mn => monthStr.startsWith(mn));
+    if (monthIdx >= 0) {
+      const yr = m[3] ? (+m[3] < 100 ? 2000 + +m[3] : +m[3]) : CFG.year;
+      return Date.UTC(yr, monthIdx, +m[1]);
+    }
+  }
+
   const t = Date.parse(s); return isNaN(t) ? null : day(t);
 }
+
 const monthOf = ms => new Date(ms).getUTCMonth() + 1;
 function parseMonth(v) {
   if (v instanceof Date || (typeof v === 'number' && v > 100)) { const t = parseExcelDate(v); return t ? monthOf(t) : null; }
@@ -148,7 +186,6 @@ function normLoc(v) {
   return String(v ?? '').trim();
 }
 
-// 1. CHUYỂN ĐỔI CHUỖI VÀ LÀM SẠCH ID (ÉP KIỂU TEXT TOÀN BỘ ĐỂ TRÁNH LỖI ĐỊNH DẠNG SỐ)
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
 
 function skipSku(s) {
@@ -160,21 +197,19 @@ function skipSku(s) {
 /* ============ CHUẨN HÓA DỮ LIỆU THÔ ============ */
 function normalize(raw) {
   const master = new Map();
-  // 1. Mapping dữ liệu từ master.xlsx (Đã ép kiểu Text qua cleanSku)
   raw.master.forEach(r => {
-    const code = cleanSku(r['Item Code_QAD']); if (!code) return;
+    const code = cleanSku(pick(r, /item.*code|sku/i)); if (!code) return;
     master.set(code, {
-      name: String(pick(r, /^(tên hh|ten hh)/i) ?? '').trim(),
-      line: 'Snack', // 2. Đưa toàn bộ về 1 ngành hàng: Snack
+      name: String(pick(r, /^(tên hh|ten hh|description)/i) ?? '').trim(),
+      line: 'Snack',
       life: +pick(r, /useful life/i) || 0,
       ea: { 1: +pick(r, /^ea qty #1/i) || 1, 2: +pick(r, /^ea qty #2/i) || 1, 3: +pick(r, /^ea qty #3/i) || 1 }
     });
   });
 
-  // 1. Cập nhật tên chính xác từ file JSON (Sheet Sku) nếu có
   const skuList = Array.isArray(raw.sku) ? raw.sku : [];
   skuList.forEach(r => {
-    const code = cleanSku(r['Item Number']); if (!code) return;
+    const code = cleanSku(pick(r, /item number|sku/i)); if (!code) return;
     const name = String(pick(r, /^(tên|name|desc|product)/i) || Object.values(r)[1] || '').trim();
     if (master.has(code)) {
       if (name) master.get(code).name = name;
@@ -190,48 +225,86 @@ function normalize(raw) {
   const G = new Map();
   const grp = (loc, sku) => {
     const k = loc + '|' + sku;
-    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {} });
+    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', name: '', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {} });
     return G.get(k);
   };
   const life = s => master.get(s)?.life || 0;
 
-  // 1. Ép text cho SKU từ onhand.xlsx
+  // Xử lý File Onhand
   raw.onhand.forEach(r => {
-    const sku = cleanSku(r.SKU_Code), loc = normLoc(r.Location), qty = +r['Q.ty On-Hand'] || 0; if (skipSku(sku) || !qty) return;
+    const rawSku = r['SKU_Code'] ?? r['SKU Code'] ?? pick(r, /sku/i);
+    const rawLoc = r['Location'] ?? pick(r, /location|kho/i);
+    const rawQty = r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i);
+
+    const sku = cleanSku(rawSku);
+    const loc = normLoc(rawLoc);
+    const qty = +rawQty || 0;
+
+    if (skipSku(sku) || !qty) return;
+
     const g = grp(loc, sku);
-    const exp = parseExcelDate(r['Expiry Date']); let mnf = parseExcelDate(r['MNF Date']);
+    
+    // Lưu Sort Name làm Tên dự phòng nếu chưa có tên
+    const sortName = String(r['Sort Name'] ?? pick(r, /sort.*name|tên/i) ?? '').trim();
+    if (sortName && !g.name) g.name = sortName;
+
+    const exp = parseExcelDate(r['Expiry Date'] ?? r['ExpiryDate'] ?? pick(r, /expiry|exp|hsd/i));
+    let mnf = parseExcelDate(r['MNF Date'] ?? r['MNFDate'] ?? pick(r, /mnf|mfg|nsx/i));
+
     if (!mnf && exp && life(sku)) mnf = addMonths(exp, -life(sku));
     g.oh.push({ exp, mnf, qty, est: false });
   });
 
-  // 1. Ép text cho SKU từ transit.xlsx
+  // Transit
   raw.transit.forEach(r => {
-    const sku = cleanSku(r['Item Code_QAD']), loc = normLoc(r.Location), qty = +r['In transit_Qty'] || 0;
-    const eta = parseExcelDate(r.ETA_Date); if (skipSku(sku) || !qty || !eta) return;
-    const g = grp(loc, sku); let exp = parseExcelDate(r.Expiry_Date), est = false;
-    if (!exp && life(sku)) { exp = addMonths(eta, life(sku)); est = true; }   
-    const mnf = exp && life(sku) ? addMonths(exp, -life(sku)) : null;         
+    const sku = cleanSku(r['Item Code_QAD'] ?? pick(r, /item.*code|sku/i));
+    const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
+    const qty = +(r['In transit_Qty'] ?? pick(r, /transit|số lượng|qty/i)) || 0;
+    const eta = parseExcelDate(r['ETA_Date'] ?? pick(r, /eta/i));
+
+    if (skipSku(sku) || !qty || !eta) return;
+    const g = grp(loc, sku); let exp = parseExcelDate(r['Expiry_Date'] ?? pick(r, /expiry|exp/i)), est = false;
+    if (!exp && life(sku)) { exp = addMonths(eta, life(sku)); est = true; }
+    const mnf = exp && life(sku) ? addMonths(exp, -life(sku)) : null;
     g.tr.push({ exp, mnf, qty, est, m: monthOf(eta) });
   });
 
-  // 1. Ép text cho SKU từ JSON sales plan
+  // Sales plan
   const plans = Array.isArray(raw.plan) ? raw.plan : (raw.plan?.salesplan || raw.plan?.data || []);
   plans.forEach(r => {
-    const sku = cleanSku(r.SKU_Code), m = parseMonth(r.Month), q = +r['Sell Plan'] || 0; if (skipSku(sku) || !m) return;
-    const g = grp(normLoc(r.Warehouse), sku);
-    g.plan[m] = (g.plan[m] || 0) + q; if (/^mt$/i.test(String(r.Channel).trim())) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
+    const sku = cleanSku(r['SKU_Code'] ?? pick(r, /sku/i));
+    const m = parseMonth(r['Month'] ?? pick(r, /month|tháng/i));
+    const q = +(r['Sell Plan'] ?? pick(r, /sell.*plan|plan/i)) || 0;
+
+    if (skipSku(sku) || !m) return;
+    const g = grp(normLoc(r['Warehouse'] ?? pick(r, /warehouse|kho/i)), sku);
+    g.plan[m] = (g.plan[m] || 0) + q;
+    if (/^mt$/i.test(String(r['Channel'] ?? pick(r, /channel|kênh/i)).trim())) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
   });
 
-  // 1. Ép text cho SKU từ qad.xlsx
+  // QAD
   raw.qad.forEach(r => {
-    const sku = cleanSku(r['Item Number']), t = parseExcelDate(r['Invoice Date']), q = +r['Qty Invoiced'] || 0; if (skipSku(sku) || !t) return;
-    const m = master.get(sku), u = String(r['Unit of Measure'] ?? '').trim();
-    const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;                           
-    const g = grp(normLoc(r.HQ), sku), mo = monthOf(t);
-    g.qad[mo] = (g.qad[mo] || 0) + ctn; if (/^mt$/i.test(String(r['Key Cus'] ?? '').trim())) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
+    const sku = cleanSku(r['Item Number'] ?? pick(r, /item.*number|mã/i));
+    const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
+    const q = +(r['Qty Invoiced'] ?? pick(r, /qty.*invoiced|số lượng/i)) || 0;
+
+    if (skipSku(sku) || !t) return;
+    const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim();
+    const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;
+    const g = grp(normLoc(r['HQ'] ?? pick(r, /hq|kho/i)), sku), mo = monthOf(t);
+    g.qad[mo] = (g.qad[mo] || 0) + ctn;
+    if (/^mt$/i.test(String(r['Key Cus'] ?? pick(r, /key.*cus|khách/i) ?? '').trim())) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
   });
-  
-  G.forEach(g => { const m = master.get(g.sku); if (m) { g.name = m.name || ''; g.life = m.life; } });
+
+  // Đồng bộ tên sản phẩm cuối cùng
+  G.forEach(g => { 
+    const m = master.get(g.sku); 
+    if (m) { 
+      if (m.name) g.name = m.name; 
+      g.life = m.life; 
+    }
+    if (!g.name) g.name = g.sku; // Tránh rỗng tên làm hỏng bộ lọc
+  });
   return [...G.values()];
 }
 
@@ -243,7 +316,6 @@ function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'D
 function compute(M, nameFilterRe) {
   const end = Date.UTC(CFG.year, M, 0), days = new Date(end).getUTCDate(), out = [];
   DB.forEach(g => {
-    // 2. Bộ lọc tìm từ khóa nằm BẤT KỲ VỊ TRÍ NÀO trong tên sản phẩm (g.name)
     if (nameFilterRe && !nameFilterRe.test(g.name)) return;
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
@@ -271,8 +343,7 @@ function compute(M, nameFilterRe) {
     else if (R.so > 0 && R.ending < R.so / days * 14) sku = 'BELOW';
     else if (limit != null && R.ending > limit) sku = 'OVER';
     
-    // 3. Cập nhật lại chính xác công thức tính Cover Day: (Tồn cuối / Total sell out) * số ngày của tháng đó
-    const cov = R.so > 0 ? (R.ending / R.so) * days : null;
+    const cov = R.ending < 0 ? 0 : (R.so > 0 ? (R.ending / R.so) * days : null);
     
     out.push({ ...R, g, days, cov, sku, lots: dl, mtQual, mtDem });
   });
@@ -295,7 +366,6 @@ function render() {
   $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
   const w = $('#fWarn').value, M = +$('#fMonth').value, lv = $('#fLine').value;
   
-  // Regex tìm kiếm ở bất kỳ đâu trong tên (không có dấu ^ ở đầu như trước)
   const rows = compute(M, lv === 'ALL' ? null : new RegExp(lv, 'i'));
   
   let h = '';
@@ -324,7 +394,6 @@ function render() {
 function fillFilters() {
   const curL = $('#fLine').value;
   const curM = $('#fMonth').value;
-  // Bỏ dấu ^ trong value để RegExp có thể khớp từ khóa ở bất kỳ vị trí nào
   $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ'][i]}</option>`).join('');
   $('#fMonth').innerHTML = CFG.months.map(m => `<option value="${m}">${tt('mon')} ${m} (${MN[m - 1].replace(/^./, c => c.toUpperCase())})</option>`).join('');
   if (curL) $('#fLine').value = curL;
@@ -353,8 +422,8 @@ function demoData() {
   const pl = (w, sku, ch, mo, q) => ({ Warehouse: w, 'Product Line': '', SKU_Code: sku, Channel: ch, Month: mo, 'Sell Plan': q });
   return {
     master: [mk('110301460001', 'MIX Hot Chili 150g', 'MIX', 12), mk('110301470001', 'BiteeZ Fish Sheet 18g', 'BiteeZ', 9), mk('110301480001', 'Yappy Snack 30g', 'Yappy VN', 12)],
-    onhand: [oh('South', '110301460001', 'MIX', U(2026,1,10), U(2027,1,10), 400), oh('South', '110301460001', 'MIX', U(2026,6,1), U(2027,6,1), 300),
-             oh('South', '110301470001', 'BiteeZ', U(2026,1,15), U(2026,10,15), 500), oh('North', '110301480001', 'Yappy VN', U(2026,3,1), U(2027,3,1), 250)],
+    onhand: [oh('South', '110301460001', 'MIX', "01/10/2026", "01/10/2027", 400), oh('South', '110301460001', 'MIX', "06/01/2026", "06/01/2027", 300),
+             oh('South', '110301470001', 'BiteeZ', "01-15", "10-15", 500), oh('North', '110301480001', 'Yappy VN', "03-01", "03-01-27", 250)],
     transit: [{ PO_No: 'PO1', Location: 11001, Item_Code: '', 'Item Code_QAD': '110301460001', Expiry_Date: U(2027,9,1), ETA_Date: U(2026,10,20), 'In transit_Qty': 600 },
               { PO_No: 'PO2', Location: 15001, 'Item Code_QAD': '110301480001', Expiry_Date: null, ETA_Date: U(2026,11,5), 'In transit_Qty': 300 }],
     qad: [{ 'Item Number': '110301460001-01', 'Unit of Measure': 'CT', 'Qty Invoiced': 350, HQ: 'HCMC', 'Invoice Date': U(2026,9,5), 'Key Cus': 'MT' },
@@ -400,7 +469,6 @@ async function loadReal() {
   if (!res.ok) throw new Error('Apps Script trả về lỗi ' + res.status + '. Nếu lỗi 404, hãy kiểm tra lại URL hoặc chạy bằng tab Ẩn danh.');
   const j = await res.json();
   
-  // 1. Load thêm sheet sku từ JSON
   enter({ master, onhand, transit, qad, plan: j['Sales plan'] || [], unit: j['unit'] || [], sku: j['sku'] || [] },
         `${tt('loaded')} (onhand/transit: ${base.name} · QAD: ${latest.name})`);
 }
