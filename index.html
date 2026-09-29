@@ -93,12 +93,16 @@ const T = {
   out:'Đăng xuất',loc:'Kho',sku:'SKU',prod:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
   mon:'Tháng',cond:'Điều kiện',note:'Bộ lọc, tính FIFO lũy kế từ tháng 9 đến tháng đã chọn. Lô có tồn cuối = 0 bị ẩn.',
-  loading:'Đang tải dữ liệu...',demo:'Đang dùng dữ liệu mẫu',loaded:'Đã tải dữ liệu thật',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính'},
+  loading:'Đang tải dữ liệu...',demo:'Đang dùng dữ liệu mẫu',loaded:'Đã tải dữ liệu thật',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
+  nSum:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team<br>- Stock coverday: số tồn kho/ total sell out * số ngày của tháng đó',
+  nDet:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Selling Plan của Sale team'},
  en:{ttl:'Inventory Summary Report',line:'Product line',month:'Report month',warn:'Warning',all:'All',sum:'Form sum',det:'Form detail',logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prod:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
   st:'Status',lot:'Lot status',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
   mon:'Month',cond:'Condition',note:'Filters and cumulative FIFO from September up to the selected month. Lots with zero ending stock are hidden.',
-  loading:'Loading data...',demo:'Using sample data',loaded:'Live data loaded',lerr:'Login failed: ',est:'Estimated EXP'}
+  loading:'Loading data...',demo:'Using sample data',loaded:'Live data loaded',lerr:'Login failed: ',est:'Estimated EXP',
+  nSum:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan<br>- Stock coverday: inventory / total sell out * days in month',
+  nDet:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: Sales team\'s Selling Plan'}
 };
 const ST = { // [vi, en, css]
  SAFE:['An toàn','Safe','ok'], WATCH:['Theo dõi (50–65%)','Watch (50–65%)','wt'], NEAR:['Cận date (<50%)','Near expiry (<50%)','nr'],
@@ -138,7 +142,6 @@ function parseMonth(v) {
   return i >= 0 ? i + 1 : (+s.replace(/\D/g, '') || null);
 }
 
-// Đã viết lại normLoc bằng chuỗi thuần túy để tránh lỗi cú pháp Regex/dấu ngoặc
 function normLoc(v) {
   const s = String(v ?? '').trim().toLowerCase();
   if (s === '11001' || s === 'hcmc' || s === 'south') return 'South';
@@ -148,7 +151,6 @@ function normLoc(v) {
 
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
 
-// Đã viết lại skipSku bằng chuỗi thuần túy
 function skipSku(s) {
   if (!s) return true;
   const up = String(s).toUpperCase();
@@ -244,6 +246,7 @@ function compute(M, lineRe) {
     else if (R.ending >= totalDem && mtQual < mtDem) sku = 'SHORT_MT';
     else if (R.so > 0 && R.ending < R.so / days * 14) sku = 'BELOW';
     else if (limit != null && R.ending > limit) sku = 'OVER';
+    // Công thức tính: số tồn kho (R.ending) / total sell out (R.so) * số ngày của tháng đó (days)
     const cov = R.ending < 0 ? 0 : R.so > 0 ? R.ending / R.so * days : null;
     out.push({ ...R, g, days, cov, sku, lots: dl, mtQual, mtDem });
   });
@@ -272,7 +275,7 @@ function render() {
       const worst = r.lots.length ? r.lots.reduce((a, b) => (b.h ?? 1e9) < (a.h ?? 1e9) ? b : a).st : '';
       return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td></tr>`;
     }).join('');
-    h = body ? `<div class="wrap"><table>${th('loc','sku','prod','lineC','begin','tr','so','end','cov','st')}${body}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
+    h = body ? `<div class="wrap"><table>${th('loc','sku','prod','lineC','begin','tr','so','end','cov','st')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } else if (tab === 'det') {
     let body = '';
     rows.forEach(r => r.lots.forEach(l => {
@@ -281,7 +284,7 @@ function render() {
       const d = x => x ? new Date(x).toISOString().slice(0, 10) : '—';
       body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td></tr>`;
     }));
-    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prod','mnf','exp','qty','hsd','lot','skuSt')}${body}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
+    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prod','mnf','exp','qty','hsd','lot','skuSt')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nDet')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } else {
     h = `<div class="wrap"><table>${th('st','cond')}${RULES.map(r => `<tr><td>${badge(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table></div>`;
   }
@@ -363,8 +366,9 @@ async function loadReal() {
     ['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k])));
   const qad = await readXlsx(latest.name, CFG.files.qad);
 
-  const res = await fetch(CFG.planUrl);
-  if (!res.ok) throw new Error('Apps Script trả về lỗi ' + res.status);
+  // Thêm tuỳ chọn follow redirect để tránh lỗi 404 trên các URL Google Web App bị bẻ nhánh
+  const res = await fetch(CFG.planUrl, { redirect: 'follow' });
+  if (!res.ok) throw new Error('Apps Script trả về lỗi ' + res.status + '. Nếu lỗi 404, hãy kiểm tra lại URL hoặc chạy bằng tab Ẩn danh.');
   const j = await res.json();
   enter({ master, onhand, transit, qad, plan: j['Sales plan'] || [], unit: j['unit'] || [] },
         `${tt('loaded')} (onhand/transit: ${base.name} · QAD: ${latest.name})`);
