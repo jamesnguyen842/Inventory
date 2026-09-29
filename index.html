@@ -1,305 +1,405 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <!-- Cấu hình CSP để bảo mật XSS theo yêu cầu D6 -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.sheetjs.com; connect-src 'self' https://didthuazwmuxddlxhkob.supabase.co https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline';">
-  <title>Báo cáo tổng hợp tồn kho</title>
-  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-  <style>
-    :root { --primary: #0056b3; --bg: #f4f6f9; --text: #333; --border: #ccc; }
-    body { font-family: Arial, sans-serif; margin: 0; background-color: var(--bg); color: var(--text); }
-    .hidden { display: none !important; }
-    
-    /* Login Screen */
-    #login-screen { display: flex; height: 100vh; justify-content: center; align-items: center; }
-    .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; }
-    .login-box input { width: 100%; margin-bottom: 15px; padding: 10px; box-sizing: border-box; }
-    .login-box button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
-    
-    /* Main Dashboard */
-    #app-screen { display: flex; flex-direction: column; height: 100vh; }
-    header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-    .lang-toggle button { margin-left: 5px; cursor: pointer; }
-    
-    /* Filters */
-    .filters { padding: 15px 20px; background: white; display: flex; gap: 15px; border-bottom: 1px solid var(--border); }
-    .filters select { padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
-    
-    /* Tabs */
-    .tabs { display: flex; background: #e9ecef; padding: 0 20px; }
-    .tab-btn { padding: 10px 20px; border: none; background: transparent; cursor: pointer; font-weight: bold; border-bottom: 3px solid transparent; }
-    .tab-btn.active { border-bottom-color: var(--primary); color: var(--primary); }
-    
-    /* Content & Tables */
-    .content { padding: 20px; flex: 1; overflow-y: auto; }
-    table { width: 100%; border-collapse: collapse; background: white; }
-    th, td { border: 1px solid var(--border); padding: 8px; text-align: left; font-size: 14px; }
-    th { background: #f8f9fa; position: sticky; top: 0; }
-    
-    /* Warning Colors */
-    .warn-red { background-color: #ffeeba; color: #dc3545; font-weight: bold; }
-    .warn-orange-dark { background-color: #ffe8a1; color: #fd7e14; }
-    .warn-orange-light { background-color: #fff3cd; color: #ffc107; }
-    .warn-green { color: #28a745; }
-    
-    #dq-alert { color: red; font-weight: bold; cursor: pointer; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Báo cáo tổng hợp tồn kho</title>
+<style>
+:root{--bg:#f5f6f4;--fg:#1c2421;--mut:#66706b;--card:#fff;--line:#d9dedb;--ac:#1f6f5c;--ac2:#e8f1ee}
+@media(prefers-color-scheme:dark){:root{--bg:#141917;--fg:#e6ebe8;--mut:#93a09a;--card:#1d2421;--line:#2f3a35;--ac:#4fb59b;--ac2:#22302b}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
+[hidden]{display:none!important}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer;border:1px solid var(--line);background:var(--card);padding:6px 14px;border-radius:6px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+#login{max-width:340px;margin:12vh auto;background:var(--card);border:1px solid var(--line);padding:28px;border-radius:10px;display:grid;gap:12px}
+#login h2{margin:0 0 4px}
+input,select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);width:100%}
+.err{color:#b3261e;min-height:1.2em}
+header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header h1{font-size:22px;margin:0;flex:1}
+.filters{display:flex;gap:16px;padding:14px 24px;flex-wrap:wrap}
+.filters label{display:grid;gap:3px;min-width:170px;color:var(--mut);font-size:12px}
+.tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 16px}
+.tabs button.on{border-bottom-color:var(--ac);background:none;color:var(--ac);font-weight:600}
+main{padding:16px 24px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+table{border-collapse:collapse;width:100%;white-space:nowrap}
+th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:var(--ac2);position:sticky;top:0}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.neg{color:#b3261e;font-weight:600}
+.b{padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid}
+.ok{color:#1e7a4a;background:#e3f4ea;border-color:#b7e0c6}
+.wt{color:#7a6a12;background:#f8f1cf;border-color:#e6d98b}
+.nr{color:#96570f;background:#fbe9d0;border-color:#efc78f}
+.dp{color:#a2400c;background:#f9d9c6;border-color:#eba57f}
+.ex{color:#a3201a;background:#f8d7d4;border-color:#e59b95}
+.note{color:var(--mut);margin:0 0 10px}
+.empty{padding:28px;text-align:center;color:var(--mut)}
+#status{padding:0 24px;color:var(--mut)}
+</style>
 </head>
 <body>
 
-  <!-- Màn hình đăng nhập -->
-  <div id="login-screen">
-    <div class="login-box">
-      <h2 id="lbl-login-title">Đăng nhập hệ thống</h2>
-      <input type="email" id="auth-email" placeholder="Email" />
-      <input type="password" id="auth-password" placeholder="Password" />
-      <button id="btn-login">Đăng nhập</button>
-      <div id="login-error" style="color:red; margin-top:10px; font-size: 14px;"></div>
-    </div>
+<div id="login">
+  <h2>Đăng nhập</h2>
+  <input id="em" type="email" placeholder="Email" autocomplete="username">
+  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
+  <button class="pri" id="btnLogin">Đăng nhập</button>
+  <button id="btnDemo">Chạy dữ liệu mẫu</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <h1 id="ttl"></h1>
+    <button id="lvi" class="on">Vi</button><button id="len">En</button>
+    <button id="btnOut"></button>
+  </header>
+  <div class="filters">
+    <label><span data-t="line"></span><select id="fLine"></select></label>
+    <label><span data-t="month"></span><select id="fMonth"></select></label>
+    <label><span data-t="warn"></span><select id="fWarn"></select></label>
   </div>
-
-  <!-- Giao diện chính -->
-  <div id="app-screen" class="hidden">
-    <header>
-      <h2 id="lbl-app-title">Báo cáo tổng hợp tồn kho</h2>
-      <div style="display: flex; align-items: center; gap: 20px;">
-        <div id="dq-alert" class="hidden" title="Nhấn để xem chi tiết lỗi dữ liệu">⚠️ Lỗi dữ liệu (<span id="dq-count">0</span>)</div>
-        <div class="lang-toggle">
-          <button onclick="setLang('vi')">[Vi]</button>
-          <button onclick="setLang('en')">[En]</button>
-        </div>
-        <button id="btn-logout" style="padding: 5px 10px;">Đăng xuất</button>
-      </div>
-    </header>
-
-    <div class="filters">
-      <!-- Bộ lọc 1: Ngành hàng -->
-      <select id="filter-product-line">
-        <option value="all">Tất cả ngành hàng</option>
-        <option value="mix">MIX</option>
-        <option value="biteez">BiteeZ</option>
-        <option value="yappy">Yappy</option>
-        <option value="parteez">ParteeZ</option>
-      </select>
-      
-      <!-- Bộ lọc 2: Tháng báo cáo -->
-      <select id="filter-month">
-        <option value="9">Tháng 9 (September)</option>
-        <option value="10">Tháng 10 (October)</option>
-        <option value="11">Tháng 11 (November)</option>
-        <option value="12">Tháng 12 (December)</option>
-      </select>
-
-      <!-- Bộ lọc 3: Cảnh báo -->
-      <select id="filter-warning">
-        <option value="all">Tất cả cảnh báo</option>
-        <option value="SAFE">An toàn</option>
-        <option value="NEAR_DATE">Cận date (<50% HSD)</option>
-        <option value="DISCARD">Hủy hàng (<30% HSD)</option>
-        <option value="EXPIRED">Hết hạn SD</option>
-        <option value="SHORTAGE">Thiếu hàng</option>
-        <option value="BELOW_SAFETY">Dưới an toàn</option>
-        <option value="MT_SHORT">Thiếu hàng kênh MT</option>
-      </select>
-    </div>
-
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="tab-sum">Form sum</button>
-      <button class="tab-btn" data-tab="tab-detail">Form detail</button>
-      <button class="tab-btn" data-tab="tab-logic">Logic</button>
-    </div>
-
-    <div class="content">
-      <div id="tab-sum" class="tab-content">
-        <table id="tbl-sum">
-          <thead><tr><th>Kho</th><th>SKU</th><th>Tên SP</th><th>Tồn đầu</th><th>In Transit</th><th>Sell Out</th><th>Ending SKU</th><th>Cảnh báo</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      
-      <div id="tab-detail" class="tab-content hidden">
-        <table id="tbl-detail">
-          <thead><tr><th>Kho</th><th>SKU</th><th>Ngày MNF</th><th>Ngày EXP</th><th>% HSD</th><th>Tồn cuối lô</th><th>Cảnh báo lô</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <div id="tab-logic" class="tab-content hidden">
-        <table id="tbl-logic">
-          <thead><tr><th>Cảnh báo</th><th>Điều Kiện Logic</th><th>Rủi ro thực tế</th><th>Hành Động</th></tr></thead>
-          <tbody id="tbody-logic"></tbody>
-        </table>
-      </div>
-    </div>
+  <div id="status"></div>
+  <div class="tabs">
+    <button data-tab="sum" class="on"></button><button data-tab="det"></button><button data-tab="logic"></button>
   </div>
+  <main><div id="view"></div></main>
+</div>
 
-  <script type="module">
-    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ============ CẤU HÌNH ============ */
+const CFG = {
+  url: 'https://didthuazwmuxddlxhkob.supabase.co',
+  key: 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw',
+  bucket: 'inventory',                  // Yêu cầu 1: Đổi bucket thành inventory
+  files: { master:'master.xlsx', onhand:'onhand.xlsx', qad:'qad.xlsx', transit:'transit.xlsx' },
+  planUrl: 'https://script.google.com/macros/s/AKfycbxO9zT33UapiEpEoCgRGQXr6uexQ-WIToK74iS_pXVMob_zA7Fw81l8AtpX1tZvRrOZuw/exec',
+  year: 2026, months: [9,10,11,12],
+  baseNoPlanUseQad: false               // Yêu cầu 3: Đặt bằng false để Sell out tháng 9 bằng 0 khi test
+};
 
-    // 1. Cấu hình Supabase & Hằng số
-    const supabase = createClient('https://didthuazwmuxddlxhkob.supabase.co', 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw');
-    const PLAN_URL = 'https://script.google.com/macros/s/AKfycbxO9zT33UapiEpEoCgRGQXr6uexQ-WIToK74iS_pXVMob_zA7Fw81l8AtpX1tZvRrOZuw/exec';
+/* ============ ĐA NGÔN NGỮ ============ */
+const T = {
+ vi:{ttl:'Báo cáo tổng hợp tồn kho',line:'Ngành hàng',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',sum:'Form sum',det:'Form detail',logic:'Logic',
+  out:'Đăng xuất',loc:'Kho',sku:'SKU',prod:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
+  st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
+  mon:'Tháng',cond:'Điều kiện',note:'Bộ lọc, tính FIFO lũy kế từ tháng 9 đến tháng đã chọn. Lô có tồn cuối = 0 bị ẩn.',
+  loading:'Đang tải dữ liệu...',demo:'Đang dùng dữ liệu mẫu',loaded:'Đã tải dữ liệu thật',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính'},
+ en:{ttl:'Inventory Summary Report',line:'Product line',month:'Report month',warn:'Warning',all:'All',sum:'Form sum',det:'Form detail',logic:'Logic',
+  out:'Log out',loc:'Warehouse',sku:'SKU',prod:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
+  st:'Status',lot:'Lot status',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
+  mon:'Month',cond:'Condition',note:'Filters and cumulative FIFO from September up to the selected month. Lots with zero ending stock are hidden.',
+  loading:'Loading data...',demo:'Using sample data',loaded:'Live data loaded',lerr:'Login failed: ',est:'Estimated EXP'}
+};
+const ST = { // [vi, en, css]
+ SAFE:['An toàn','Safe','ok'], WATCH:['Theo dõi (50–65%)','Watch (50–65%)','wt'], NEAR:['Cận date (<50%)','Near expiry (<50%)','nr'],
+ DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp'], EXPIRED:['Hết hạn SD','Expired','ex'], SHORT:['Thiếu hàng','Out of stock','ex'],
+ SHORT_MT:['Thiếu hàng kênh MT','MT channel shortage','dp'], BELOW:['Dưới an toàn','Below safety','nr'], OVER:['Vượt nhu cầu','Over demand','wt']
+};
+const RULES = [
+ ['EXPIRED','%HSD ≤ 0'],['SHORT','Ending SKU < 0'],['SHORT_MT','Ending ≥ Demand && MT_Qualified(≥60%) < MT_Demand'],
+ ['DISPOSE','0 < %HSD < 30'],['NEAR','30 ≤ %HSD < 50'],['WATCH','50 ≤ %HSD < 65'],
+ ['BELOW','0 ≤ Ending < Sell out/days × 14'],['OVER','Ending > Plan × 30% × Useful Life(month)'],['SAFE','%HSD ≥ 65 && SKU status = ∅']
+];
+
+/* ============ TIỆN ÍCH ============ */
+const $= s => document.querySelector(s),$$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt = n => n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('en-US');
+const MN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+let lang = 'vi', sb = null, DB = null, tab = 'sum';
+
+const pick = (r, re) => { const k = Object.keys(r).find(k => re.test(String(k).trim())); return k ? r[k] : undefined; };
+const day = ms => Math.floor(ms / 864e5) * 864e5;
+const addMonths = (ms, n) => { const d = new Date(ms); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate()); };
+
+// Chuẩn hóa ngày: serial Excel, Date, ms, chuỗi dd/mm/yyyy
+function parseExcelDate(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return isNaN(v) ? null : Date.UTC(v.getFullYear(), v.getMonth(), v.getDate());
+  if (typeof v === 'number') return v > 1e10 ? day(v) : day(Math.round((v - 25569) * 864e5)); // mốc 30/12/1899
+  const s = String(v).trim(), m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) return Date.UTC(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[2] - 1, +m[1]);
+  const t = Date.parse(s); return isNaN(t) ? null : day(t);
+}
+const monthOf = ms => new Date(ms).getUTCMonth() + 1;
+function parseMonth(v) {
+  if (v instanceof Date || (typeof v === 'number' && v > 100)) { const t = parseExcelDate(v); return t ? monthOf(t) : null; }
+  const s = String(v ?? '').trim().toLowerCase(), i = MN.findIndex(m => s.startsWith(m));
+  return i >= 0 ? i + 1 : (+s.replace(/\D/g, '') || null);
+}
+function normLoc(v) {
+  const s = String(v ?? '').trim();
+  if (s === '11001' || /^hcmc$/i.test(s) \vert{}\vert{} /^south$/i.test(s)) return 'South';
+  if (s === '15001' || /^hanoi$/i.test(s) \vert{}\vert{} /^north$/i.test(s)) return 'North';
+  return s;
+}
+const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
+const skipSku = s => !s || /^(CKCT|MD|QD)/i.test(s);
+
+/* ============ CHUẨN HÓA DỮ LIỆU THÔ ============ */
+function normalize(raw) {
+  const master = new Map();
+  raw.master.forEach(r => {
+    const code = String(r['Item Code_QAD'] ?? '').trim(); if (!code) return;
+    master.set(code, {
+      name: pick(r, /^(tên hh|ten hh)/i) ?? '', line: String(pick(r, /^product line$/i) ?? ''),
+      life: +pick(r, /useful life/i) || 0,
+      ea: { 1: +pick(r, /^ea qty #1/i) || 1, 2: +pick(r, /^ea qty #2/i) || 1, 3: +pick(r, /^ea qty #3/i) || 1 }
+    });
+  });
+  const unitMap = {};
+  (raw.unit || []).forEach(r => { unitMap[String(pick(r, /^(unit|đơn vị|mã)/i) ?? Object.values(r)[0]).trim()] = String(pick(r, /ea qty type/i) ?? ''); });
+  const eaLevel = u => { const t = unitMap[u] || ''; return /3|cn|can/i.test(t) ? 3 : /2|pack/i.test(t) ? 2 : 1; };
+
+  const G = new Map();
+  const grp = (loc, sku) => {
+    const k = loc + '|' + sku;
+    if (!G.has(k)) G.set(k, { loc, sku, line: '', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {} });
+    return G.get(k);
+  };
+  const life = s => master.get(s)?.life || 0;
+
+  raw.onhand.forEach(r => {
+    const sku = cleanSku(r.SKU_Code), loc = normLoc(r.Location), qty = +r['Q.ty On-Hand'] || 0; if (skipSku(sku) || !qty) return;
+    const g = grp(loc, sku); g.line = g.line || String(r['Product Line'] ?? '');
+    const exp = parseExcelDate(r['Expiry Date']); let mnf = parseExcelDate(r['MNF Date']);
+    if (!mnf && exp && life(sku)) mnf = addMonths(exp, -life(sku));
+    g.oh.push({ exp, mnf, qty, est: false });
+  });
+  raw.transit.forEach(r => {
+    const sku = cleanSku(r['Item Code_QAD']), loc = normLoc(r.Location), qty = +r['In transit_Qty'] || 0;
+    const eta = parseExcelDate(r.ETA_Date); if (skipSku(sku) || !qty || !eta) return;
+    const g = grp(loc, sku); let exp = parseExcelDate(r.Expiry_Date), est = false;
+    if (!exp && life(sku)) { exp = addMonths(eta, life(sku)); est = true; }   // EXP trống -> ước tính
+    const mnf = exp && life(sku) ? addMonths(exp, -life(sku)) : null;         // transit không có MNF
+    g.tr.push({ exp, mnf, qty, est, m: monthOf(eta) });
+  });
+  const seen = new Set();
+  const plans = Array.isArray(raw.plan) ? raw.plan : (raw.plan?.salesplan || raw.plan?.data || []);
+  plans.forEach(r => {
+    const sku = cleanSku(r.SKU_Code), m = parseMonth(r.Month), q = +r['Sell Plan'] || 0; if (skipSku(sku) || !m) return;
+    const g = grp(normLoc(r.Warehouse), sku); g.line = g.line || String(r['Product Line'] ?? '');
+    g.plan[m] = (g.plan[m] || 0) + q; if (/^mt$/i.test(String(r.Channel).trim())) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
+  });
+  raw.qad.forEach(r => {
+    const sku = cleanSku(r['Item Number']), t = parseExcelDate(r['Invoice Date']), q = +r['Qty Invoiced'] || 0; if (skipSku(sku) || !t) return;
+    const m = master.get(sku), u = String(r['Unit of Measure'] ?? '').trim();
+    const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;                           // quy đổi về thùng
+    const g = grp(normLoc(r.HQ), sku), mo = monthOf(t);
+    g.qad[mo] = (g.qad[mo] || 0) + ctn; if (/^mt$/i.test(String(r['Key Cus'] ?? '').trim())) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
+  });
+  G.forEach(g => { const m = master.get(g.sku); if (m) { g.name = m.name; g.life = m.life; g.line = m.line || g.line; } });
+  return [...G.values()];
+}
+
+/* ============ TÍNH TOÁN (FIFO LŨY KẾ) ============ */
+const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(plan[m] - qad[m], 0) : plan[m]) : (qad[m] || 0);
+const sum = a => a.reduce((s, x) => s + x.qty, 0);
+function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
+
+function compute(M, lineRe) {
+  const end = Date.UTC(CFG.year, M, 0), days = new Date(end).getUTCDate(), out = [];
+  DB.forEach(g => {
+    if (lineRe && !lineRe.test(g.line)) return;
+    let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
+    CFG.months.filter(m => m <= M).forEach(m => {
+      const begin = sum(lots) - deficit, inn = g.tr.filter(t => t.m === m);
+      inn.forEach(t => lots.push({ ...t }));
+      lots.sort((a, b) => (a.exp ?? 9e15) - (b.exp ?? 9e15));                  // FIFO/FEFO theo EXP, null xuống cuối
+      let so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
+      let rem = so + deficit;
+      for (const l of lots) { if (rem <= 0) break; const t = Math.min(l.qty, rem); l.qty -= t; rem -= t; }
+      deficit = rem;
+      R = { begin, tr: sum(inn), so, ending: sum(lots) - deficit };
+    });
+    if (!R) return;
+    const mtDem = remain(g.mtPlan, g.mtQad, M), totalDem = R.so;
+    const dl = lots.filter(l => l.qty > 0).map(l => {
+      const h = l.exp && l.mnf && l.exp > l.mnf ? (l.exp - end) / (l.exp - l.mnf) * 100 : null;
+      return { ...l, h, st: lotStatus(h) };
+    });
+    const mtQual = dl.filter(l => l.h != null && l.h >= 60).reduce((s, l) => s + l.qty, 0);
+    const limit = g.plan[M] > 0 && g.life ? g.plan[M] * 0.3 * g.life : null;
+    let sku = '';
+    if (R.ending < 0) sku = 'SHORT';
+    else if (R.ending >= totalDem && mtQual < mtDem) sku = 'SHORT_MT';
+    else if (R.so > 0 && R.ending < R.so / days * 14) sku = 'BELOW';
+    else if (limit != null && R.ending > limit) sku = 'OVER';
+    const cov = R.ending < 0 ? 0 : R.so > 0 ? R.ending / R.so * days : null;
+    out.push({ ...R, g, days, cov, sku, lots: dl, mtQual, mtDem });
+  });
+  return out.sort((a, b) => (a.g.loc + a.g.sku).localeCompare(b.g.loc + b.g.sku));
+}
+
+/* ============ HIỂN THỊ ============ */
+const tt = k => T[lang][k];
+const badge = c => c ? `<span class="b ${ST[c][2]}">${esc(ST[c][lang === 'vi' ? 0 : 1])}</span>` : '—';
+const th = (...k) => `<tr>${k.map(x => `<th>${esc(tt(x))}</th>`).join('')}</tr>`;
+const num = (v, neg) => `<td class="n ${neg && v < 0 ? 'neg' : ''}">${fmt(v)}</td>`;
+
+function passWarn(w, skuSt, lotSts) {
+  if (w === 'ALL') return true;
+  return skuSt === w || lotSts.includes(w) || (w === 'SAFE' && !skuSt && lotSts.every(s => s === 'SAFE'));
+}
+function render() {
+  if (!DB) return;
+  $('#ttl').textContent = tt('ttl'); document.title = tt('ttl');   $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
+  $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
+  const w = $('#fWarn').value, M = +$('#fMonth').value, lv = $('#fLine').value;
+  const rows = compute(M, lv === 'ALL' ? null : new RegExp(lv, 'i'));
+  let h = '';
+  if (tab === 'sum') {
+    const body = rows.filter(r => passWarn(w, r.sku, r.lots.map(l => l.st))).map(r => {
+      const worst = r.lots.length ? r.lots.reduce((a, b) => (b.h ?? 1e9) < (a.h ?? 1e9) ? b : a).st : '';
+      return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td></tr>`;
+    }).join('');
+    h = body ? `<div class="wrap"><table>${th('loc','sku','prod','lineC','begin','tr','so','end','cov','st')}${body}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
+  } else if (tab === 'det') {
+    let body = '';
+    rows.forEach(r => r.lots.forEach(l => {
+      if (!passWarn(w, r.sku, [l.st]) && !(w === r.sku)) return;
+      if (w !== 'ALL' && w !== r.sku && l.st !== w && !(w === 'SAFE' && l.st === 'SAFE' && !r.sku)) return;
+      const d = x => x ? new Date(x).toISOString().slice(0, 10) : '—';
+      body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td></tr>`;
+    }));
+    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prod','mnf','exp','qty','hsd','lot','skuSt')}${body}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
+  } else {
+    h = `<div class="wrap"><table>${th('st','cond')}${RULES.map(r => `<tr><td>${badge(r[0])}</td><td>${esc(r[1])}</td></tr>`).join('')}</table></div>`;
+  }
+  $('#view').innerHTML = h;
+}
+
+/* ============ KHỞI TẠO GIAO DIỆN ============ */
+function fillFilters() {
+  const curL = $('#fLine').value;
+  const curM = $('#fMonth').value;
+  $('#fLine').innerHTML = [['ALL', 'all'], ['^mix', 0], ['^biteez', 0], ['^yappy', 0], ['^partee', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ'][i]}</option>`).join('');
+  $('#fMonth').innerHTML = CFG.months.map(m => `<option value="${m}">${tt('mon')} ${m} (${MN[m - 1].replace(/^./, c => c.toUpperCase())})</option>`).join('');
+  if (curL) $('#fLine').value = curL;
+  if (curM) $('#fMonth').value = curM;
+  fillWarn();
+}
+function fillWarn() {
+  const cur = $('#fWarn').value || 'ALL';
+  $('#fWarn').innerHTML = `<option value="ALL">${tt('all')}</option>` + Object.keys(ST).map(k => `<option value="${k}">${ST[k][lang === 'vi' ? 0 : 1]}</option>`).join('');
+  $('#fWarn').value = cur;
+}
+function setLang(l) {
+  lang = l; $('#lvi').classList.toggle('on', l === 'vi'); $('#len').classList.toggle('on', l === 'en');
+  const m = $('#fMonth').value; fillFilters(); $('#fMonth').value = m; render();
+}
+function enter(raw, msg) {
+  DB = normalize(raw); $('#login').hidden = true; $('#app').hidden = false;
+  $('#status').textContent = msg; fillFilters(); render();
+}
+
+/* ============ DỮ LIỆU MẪU ============ */
+function demoData() {
+  const U = (y, m, d) => Date.UTC(y, m - 1, d);
+  const mk = (code, name, line, life) => ({ 'Item Code_QAD': code, 'TÊN HH-Vnsese Description': name, 'EA Qty #1 (CT)': 1, 'EA Qty #2 (Pack)': 10, 'EA Qty #3 (Cn)': 40, 'Product Line': line, 'Useful Life(Month': life });
+  const oh = (loc, sku, line, mnf, exp, q) => ({ Location: loc, SKU_Code: sku, 'Product Line': line, 'MNF Date': mnf, 'Expiry Date': exp, 'Q.ty On-Hand': q });
+  const pl = (w, sku, ch, mo, q) => ({ Warehouse: w, 'Product Line': '', SKU_Code: sku, Channel: ch, Month: mo, 'Sell Plan': q });
+  return {
+    master: [mk('110301460001', 'MIX Hot Chili 150g', 'MIX', 12), mk('110301470001', 'BiteeZ Fish Sheet 18g', 'BiteeZ', 9), mk('110301480001', 'Yappy Snack 30g', 'Yappy VN', 12)],
+    onhand: [oh('South', '110301460001', 'MIX', U(2026,1,10), U(2027,1,10), 400), oh('South', '110301460001', 'MIX', U(2026,6,1), U(2027,6,1), 300),
+             oh('South', '110301470001', 'BiteeZ', U(2026,1,15), U(2026,10,15), 500), oh('North', '110301480001', 'Yappy VN', U(2026,3,1), U(2027,3,1), 250)],
+    transit: [{ PO_No: 'PO1', Location: 11001, Item_Code: '', 'Item Code_QAD': '110301460001', Expiry_Date: U(2027,9,1), ETA_Date: U(2026,10,20), 'In transit_Qty': 600 },
+              { PO_No: 'PO2', Location: 15001, 'Item Code_QAD': '110301480001', Expiry_Date: null, ETA_Date: U(2026,11,5), 'In transit_Qty': 300 }],
+    qad: [{ 'Item Number': '110301460001-01', 'Unit of Measure': 'CT', 'Qty Invoiced': 350, HQ: 'HCMC', 'Invoice Date': U(2026,9,5), 'Key Cus': 'MT' },
+          { 'Item Number': '110301470001', 'Unit of Measure': 'CT', 'Qty Invoiced': 200, HQ: 'HCMC', 'Invoice Date': U(2026,9,8), 'Key Cus': 'TT' },
+          { 'Item Number': 'CKCT-001', 'Unit of Measure': '%', 'Qty Invoiced': 5, HQ: 'HCMC', 'Invoice Date': U(2026,9,8), 'Key Cus': 'TT' }],
+    plan: [pl('South','110301460001','MT','Oct',300), pl('South','110301460001','TT','Oct',500), pl('South','110301460001','MT','Nov',350), pl('South','110301460001','TT','Nov',500),
+           pl('South','110301470001','TT','Oct',400), pl('South','110301470001','TT','Nov',400), pl('South','110301470001','TT','Dec',400),
+           pl('North','110301480001','TT','Oct',150), pl('North','110301480001','TT','Nov',200), pl('North','110301480001','TT','Dec',200)],
+    unit: []
+  };
+}
+
+/* ============ TẢI DỮ LIỆU THẬT ============ */
+async function loadReal(monthToLoad) {
+  $('#status').textContent = tt('loading');
+  const m = monthToLoad || +$('#fMonth').value || CFG.months[0];
+  
+  try {
+    // Yêu cầu 1: Quét bucket để tìm thư mục DD.MM.YYYY có DD lớn nhất tương ứng với tháng (MM)
+    const { data: list, error: listErr } = await sb.storage.from(CFG.bucket).list();
+    if (listErr) throw new Error('Không thể lấy danh sách thư mục: ' + listErr.message);
     
-    const DAY = 86400000;
-    const EPS = 1e-6;
-    const WARNING_LABELS = {
-      SOLD_OUT: 'Đã xuất hết', EXPIRED: 'Hết hạn SD', SHORTAGE: 'Thiếu hàng',
-      MT_SHORT: 'Thiếu hàng kênh MT', DISCARD: 'Hủy hàng', NEAR_DATE: 'Cận date',
-      BELOW_SAFETY: 'Dưới an toàn', OVERSTOCK: 'Vượt nhu cầu', SAFE: 'An toàn', UNCLASSIFIED: 'Chưa phân loại'
-    };
-    const THRESHOLDS = { DISCARD_MIN: 10, DISCARD_MAX: 30, NEAR_MAX: 50, SAFE_MIN: 65, MT_MIN: 60, SAFETY_DAYS: 14 };
-
-    // Bộ thu thập lỗi chất lượng dữ liệu
-    const dq = {
-      items: [],
-      add(code, value, ctx) { this.items.push({ code, value, ctx }); this.updateUI(); },
-      clear() { this.items.length = 0; this.updateUI(); },
-      updateUI() {
-        const el = document.getElementById('dq-alert');
-        if (this.items.length > 0) {
-          el.classList.remove('hidden');
-          document.getElementById('dq-count').textContent = this.items.length;
-        } else {
-          el.classList.add('hidden');
+    let targetFolder = null;
+    let maxD = -1;
+    const mmStr = String(m).padStart(2, '0');
+    const yyStr = String(CFG.year);
+    
+    for (const item of (list || [])) {
+      const match = item.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+      if (match && match[2] === mmStr && match[3] === yyStr) {
+        const d = parseInt(match[1], 10);
+        if (d > maxD) {
+          maxD = d;
+          targetFolder = item.name;
         }
       }
-    };
-
-    // 2. Logic Đa ngôn ngữ (Localization)
-    const DICT = {
-      'vi': { title: 'Báo cáo tổng hợp tồn kho', login: 'Đăng nhập hệ thống' },
-      'en': { title: 'Inventory Summary Report', login: 'System Login' }
-    };
-    window.setLang = (lang) => {
-      document.getElementById('lbl-app-title').textContent = DICT[lang].title;
-      document.getElementById('lbl-login-title').textContent = DICT[lang].login;
-    };
-
-    // 3. Hàm Tiện ích & Chuẩn hóa
-    const round3 = (x) => Math.round(x * 1000) / 1000;
-    const normKey = (v) => (v == null ? '' : String(v)).trim().toUpperCase();
+    }
     
-    // Ánh xạ mã kho (Location Mapping)
-    const LOCATION_MAP = { '11001': 'South', '15001': 'North', 'SOUTH': 'South', 'NORTH': 'North', 'HCMC': 'South', 'HANOI': 'North' };
-    function normLocation(v, ctx) {
-      const r = LOCATION_MAP[normKey(v)];
-      if (!r) { dq.add('LOCATION_UNKNOWN', normKey(v), ctx); return null; }
-      return r;
-    }
+    if (!targetFolder) throw new Error(`Không tìm thấy thư mục dữ liệu cho tháng ${m}/${CFG.year}`);
 
-    // Xử lý mã QAD (Loại bỏ hậu tố -01)
-    function processQADItemNumber(itemNum) {
-      const code = normKey(itemNum);
-      if (code.startsWith('CKCT') || code.startsWith('MD') || code.startsWith('QD')) return null;
-      return code.endsWith('-01') ? code.slice(0, -3) : code;
-    }
+    const rd = async f => {
+      const path = `${targetFolder}/${f}`;
+      const { data, error } = await sb.storage.from(CFG.bucket).download(path); 
+      if (error) throw new Error(path + ': ' + error.message);
+      const wb = XLSX.read(await data.arrayBuffer(), { type: 'array', cellDates: true });
+      return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null });
+    };
+    const [master, onhand, qad, transit] = await Promise.all(Object.values(CFG.files).map(rd));
+    
+    const res = await fetch(CFG.planUrl); 
+    const j = await res.json();
+    
+    // Yêu cầu 2: Map chuẩn các key JSON từ Apps Script 
+    const plan = j['Sales plan'] || [];
+    const unit = j['unit'] || [];
+    // (Các key 'Logic', 'sku' có trong JSON bạn gửi nhưng chức năng normalize hiện tại chỉ cần 'plan' và 'unit')
+    
+    enter({ master, onhand, qad, transit, plan, unit }, tt('loaded') + ` (${targetFolder})`);
+  } catch (e) { 
+    $('#status').textContent = 'Lỗi: ' + e.message; 
+    console.error(e);
+  }
+}
 
-    // Chuẩn hóa ngày Excel sang UTC
-    function parseExcelDate(v) {
-      if (!v) return null;
-      if (v instanceof Date) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
-      if (typeof v === 'number' && v > 0 && v <= 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * DAY);
-      return null;
-    }
-    const isoDay = (d) => (d ? d.toISOString().slice(0, 10) : 'N/A');
+async function login() {
+  $('#loginErr').textContent = '';
+  try {
+    sb = sb || supabase.createClient(CFG.url, CFG.key);
+    const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
+    if (error) throw error;
+    await loadReal();
+  } catch (e) { $('#loginErr').textContent = tt('lerr') + (e.message || e); }
+}
 
-    // Tạo Element an toàn chống XSS
-    function createCell(tr, text, cssClass = '') {
-      const td = document.createElement('td');
-      td.textContent = text; // Sử dụng textContent để chống XSS
-      if (cssClass) td.className = cssClass;
-      tr.appendChild(td);
-    }
+/* ============ SỰ KIỆN ============ */
+$('#btnLogin').onclick = login;
+$('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
+$('#btnDemo').onclick = () => enter(demoData(), tt('demo'));
+$('#btnOut').onclick = async () => { try { await sb?.auth.signOut(); } catch (e) {} location.reload(); };
+$('#lvi').onclick = () => setLang('vi'); $('#len').onclick = () => setLang('en');
 
-    // 4. Thuật toán Lõi (FIFO & Cảnh báo)
-    function cmpExp(a, b) {
-      const x = a ? +a : Infinity, y = b ? +b : Infinity;
-      return x === y ? 0 : (x < y ? -1 : 1);
-    }
-
-    // Thuật toán FIFO trừ lùi Sell out
-    function allocateFIFO(lots, sellOut) {
-      const sorted = [...lots].sort((a, b) => cmpExp(a.exp, b.exp) || (a.sku < b.sku ? -1 : 1));
-      let remaining = Math.max(0, sellOut);
-      for (const l of sorted) {
-        const take = remaining > EPS ? Math.min(l.qty, remaining) : 0;
-        l.endQty = round3(l.qty - take);
-        remaining = round3(remaining - take);
-      }
-      return { lots: sorted, unmet: remaining };
-    }
-
-    // Cây điều kiện logic cảnh báo
-    function evaluateWarning(c) {
-      const T = THRESHOLDS;
-      const hasPct = c.pct !== null;
-      if (c.endQty <= EPS) return 'SOLD_OUT';
-      if (hasPct && c.pct <= 0) return 'EXPIRED';
-      if (c.skuClosing < 0) return 'SHORTAGE';
-      if (c.skuAvailable >= c.totalDemand && c.mtQualified < c.mtDemand) return 'MT_SHORT';
-      if (hasPct && c.pct >= T.DISCARD_MIN && c.pct < T.DISCARD_MAX) return 'DISCARD';
-      if (hasPct && c.pct >= T.DISCARD_MAX && c.pct < T.NEAR_MAX) return 'NEAR_DATE';
-      if (c.coverDays !== null && c.coverDays < T.SAFETY_DAYS) return 'BELOW_SAFETY';
-      if (hasPct && c.pct >= T.SAFE_MIN) return 'SAFE';
-      return 'UNCLASSIFIED';
-    }
-
-    // 5. Xác thực và Quản lý UI
-    const uiLogin = document.getElementById('login-screen');
-    const uiApp = document.getElementById('app-screen');
-
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
-        uiLogin.classList.add('hidden');
-        uiApp.classList.remove('hidden');
-        // Ở kịch bản thực tế, gọi hàm tải file từ storage qua hàm loadAll() ở đây.
-        // loadAll().then(processData).catch(e => alert(e.message));
-        renderLogicTabMock(); // Mock dữ liệu bảng Logic theo yêu cầu không dùng eval
-      } else {
-        uiLogin.classList.remove('hidden');
-        uiApp.classList.add('hidden');
-      }
-    });
-
-    document.getElementById('btn-login').addEventListener('click', async () => {
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) document.getElementById('login-error').textContent = error.message;
-    });
-
-    document.getElementById('btn-logout').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-    });
-
-    // Xử lý chuyển Tab
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
-        e.target.classList.add('active');
-        document.getElementById(e.target.dataset.tab).classList.remove('hidden');
-      });
-    });
-
-    // Hàm render bảng Logic cứng (Không gọi eval)
-    function renderLogicTabMock() {
-      const tbody = document.getElementById('tbody-logic');
-      tbody.innerHTML = '';
-      const rules = [
-        { warn: 'Đã xuất hết', logic: 'Tồn kho lô = 0', risk: 'Không', action: 'Duy trì kế hoạch FIFO' },
-        { warn: 'Hết hạn SD', logic: '%HSD <= 0', risk: 'Không lưu thông', action: 'Cách ly, tiêu hủy' },
-        { warn: 'Thiếu hàng', logic: 'Tồn tổng < 0', risk: 'Thiếu hàng thực tế', action: 'Lên PO đặt hàng' }
-      ];
-      rules.forEach(r => {
-        const tr = document.createElement('tr');
-        createCell(tr, r.warn); createCell(tr, r.logic); createCell(tr, r.risk); createCell(tr, r.action);
-        tbody.appendChild(tr);
-      });
-    }
-
-  </script>
+// Yêu cầu 1: Khi đổi tháng (live data), phải fetch lại đúng folder tháng đó
+$('#fLine').onchange = render;
+$('#fWarn').onchange = render;
+$('#fMonth').onchange = async () => {
+  if (sb) {
+    await loadReal(+$('#fMonth').value);   } else {     render();   } }; $$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
+</script>
 </body>
 </html>
