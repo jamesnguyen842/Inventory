@@ -1,288 +1,305 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Báo cáo tổng hợp tồn kho / Inventory Report</title>
-    <!-- Tailwind CSS cho Giao diện -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Supabase JS Client -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <!-- SheetJS để đọc file Excel thô -->
-    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Cấu hình CSP để bảo mật XSS theo yêu cầu D6 -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdn.sheetjs.com; connect-src 'self' https://didthuazwmuxddlxhkob.supabase.co https://script.google.com https://script.googleusercontent.com; style-src 'self' 'unsafe-inline';">
+  <title>Báo cáo tổng hợp tồn kho</title>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    :root { --primary: #0056b3; --bg: #f4f6f9; --text: #333; --border: #ccc; }
+    body { font-family: Arial, sans-serif; margin: 0; background-color: var(--bg); color: var(--text); }
+    .hidden { display: none !important; }
     
-    <style>
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        .tab-btn.active { border-bottom: 2px solid #3b82f6; color: #3b82f6; font-weight: bold; }
-        /* Bảng hiển thị có thanh cuộn */
-        .table-container { max-height: 65vh; overflow-y: auto; }
-        th { position: sticky; top: 0; background-color: #f3f4f6; z-index: 10; }
-    </style>
+    /* Login Screen */
+    #login-screen { display: flex; height: 100vh; justify-content: center; align-items: center; }
+    .login-box { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 300px; }
+    .login-box input { width: 100%; margin-bottom: 15px; padding: 10px; box-sizing: border-box; }
+    .login-box button { width: 100%; padding: 10px; background: var(--primary); color: white; border: none; border-radius: 4px; cursor: pointer; }
+    
+    /* Main Dashboard */
+    #app-screen { display: flex; flex-direction: column; height: 100vh; }
+    header { background: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .lang-toggle button { margin-left: 5px; cursor: pointer; }
+    
+    /* Filters */
+    .filters { padding: 15px 20px; background: white; display: flex; gap: 15px; border-bottom: 1px solid var(--border); }
+    .filters select { padding: 8px; border-radius: 4px; border: 1px solid var(--border); }
+    
+    /* Tabs */
+    .tabs { display: flex; background: #e9ecef; padding: 0 20px; }
+    .tab-btn { padding: 10px 20px; border: none; background: transparent; cursor: pointer; font-weight: bold; border-bottom: 3px solid transparent; }
+    .tab-btn.active { border-bottom-color: var(--primary); color: var(--primary); }
+    
+    /* Content & Tables */
+    .content { padding: 20px; flex: 1; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; background: white; }
+    th, td { border: 1px solid var(--border); padding: 8px; text-align: left; font-size: 14px; }
+    th { background: #f8f9fa; position: sticky; top: 0; }
+    
+    /* Warning Colors */
+    .warn-red { background-color: #ffeeba; color: #dc3545; font-weight: bold; }
+    .warn-orange-dark { background-color: #ffe8a1; color: #fd7e14; }
+    .warn-orange-light { background-color: #fff3cd; color: #ffc107; }
+    .warn-green { color: #28a745; }
+    
+    #dq-alert { color: red; font-weight: bold; cursor: pointer; }
+  </style>
 </head>
-<body class="bg-gray-100 text-gray-800 font-sans">
+<body>
 
-    <!-- MÀN HÌNH ĐĂNG NHẬP (Supabase Auth)[cite: 1, 3] -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gray-200">
-        <div class="bg-white p-8 rounded shadow-md w-96">
-            <h2 class="text-2xl font-bold mb-6 text-center" id="lang-login-title">Đăng nhập hệ thống</h2>
-            <input type="email" id="email" placeholder="Email" class="w-full mb-4 p-2 border rounded">
-            <input type="password" id="password" placeholder="Password" class="w-full mb-6 p-2 border rounded">
-            <button onclick="handleLogin()" class="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Đăng nhập / Login</button>
-            <p id="login-error" class="text-red-500 text-sm mt-2 hidden"></p>
+  <!-- Màn hình đăng nhập -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h2 id="lbl-login-title">Đăng nhập hệ thống</h2>
+      <input type="email" id="auth-email" placeholder="Email" />
+      <input type="password" id="auth-password" placeholder="Password" />
+      <button id="btn-login">Đăng nhập</button>
+      <div id="login-error" style="color:red; margin-top:10px; font-size: 14px;"></div>
+    </div>
+  </div>
+
+  <!-- Giao diện chính -->
+  <div id="app-screen" class="hidden">
+    <header>
+      <h2 id="lbl-app-title">Báo cáo tổng hợp tồn kho</h2>
+      <div style="display: flex; align-items: center; gap: 20px;">
+        <div id="dq-alert" class="hidden" title="Nhấn để xem chi tiết lỗi dữ liệu">⚠️ Lỗi dữ liệu (<span id="dq-count">0</span>)</div>
+        <div class="lang-toggle">
+          <button onclick="setLang('vi')">[Vi]</button>
+          <button onclick="setLang('en')">[En]</button>
         </div>
+        <button id="btn-logout" style="padding: 5px 10px;">Đăng xuất</button>
+      </div>
+    </header>
+
+    <div class="filters">
+      <!-- Bộ lọc 1: Ngành hàng -->
+      <select id="filter-product-line">
+        <option value="all">Tất cả ngành hàng</option>
+        <option value="mix">MIX</option>
+        <option value="biteez">BiteeZ</option>
+        <option value="yappy">Yappy</option>
+        <option value="parteez">ParteeZ</option>
+      </select>
+      
+      <!-- Bộ lọc 2: Tháng báo cáo -->
+      <select id="filter-month">
+        <option value="9">Tháng 9 (September)</option>
+        <option value="10">Tháng 10 (October)</option>
+        <option value="11">Tháng 11 (November)</option>
+        <option value="12">Tháng 12 (December)</option>
+      </select>
+
+      <!-- Bộ lọc 3: Cảnh báo -->
+      <select id="filter-warning">
+        <option value="all">Tất cả cảnh báo</option>
+        <option value="SAFE">An toàn</option>
+        <option value="NEAR_DATE">Cận date (<50% HSD)</option>
+        <option value="DISCARD">Hủy hàng (<30% HSD)</option>
+        <option value="EXPIRED">Hết hạn SD</option>
+        <option value="SHORTAGE">Thiếu hàng</option>
+        <option value="BELOW_SAFETY">Dưới an toàn</option>
+        <option value="MT_SHORT">Thiếu hàng kênh MT</option>
+      </select>
     </div>
 
-    <!-- MÀN HÌNH DASHBOARD -->
-    <div id="dashboard-screen" class="hidden min-h-screen flex flex-col">
-        <!-- Header -->
-        <header class="bg-white shadow p-4 flex justify-between items-center">
-            <h1 class="text-xl font-bold text-blue-800">
-                <span id="title-vi">Báo cáo tổng hợp tồn kho</span> 
-                <span id="title-en" class="hidden">Inventory Report</span>
-            </h1>
-            <div class="flex items-center gap-4">
-                <button onclick="toggleLanguage()" class="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm font-semibold">&lt;Vi&gt; / &lt;En&gt;</button>
-                <button onclick="handleLogout()" class="text-red-500 text-sm hover:underline">Đăng xuất</button>
-            </div>
-        </header>
-
-        <!-- Bộ lọc (Filters)[cite: 8, 9] -->
-        <div class="p-4 bg-gray-50 flex gap-4 border-b">
-            <select id="filter-product-line" class="p-2 border rounded" onchange="applyFilters()">
-                <option value="All">Ngành hàng: Tất cả</option>
-                <option value="MIX">MIX</option>
-                <option value="BiteeZ">BiteeZ</option>
-                <option value="Yappy VN">Yappy VN</option>
-            </select>
-            <select id="filter-month" class="p-2 border rounded" onchange="applyFilters()">
-                <option value="9">Tháng 9 (September)</option>
-                <option value="10">Tháng 10 (October)</option>
-                <option value="11">Tháng 11 (November)</option>
-                <option value="12">Tháng 12 (December)</option>
-            </select>
-            <select id="filter-warning" class="p-2 border rounded" onchange="applyFilters()">
-                <option value="All">Cảnh báo: Tất cả</option>
-                <option value="An toàn">An toàn</option>
-                <option value="Cận date">Cận date (<50% HSD)</option>
-                <option value="Hủy hàng">Hủy hàng (<30% HSD)</option>
-                <option value="Hết hạn SD">Hết hạn SD</option>
-                <option value="Thiếu hàng">Thiếu hàng</option>
-                <option value="Dưới an toàn">Dưới an toàn</option>
-                <option value="Thiếu hàng kênh MT">Thiếu hàng kênh MT</option>
-            </select>
-            <button onclick="loadData()" id="btn-load-data" class="ml-auto bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Tải Dữ Liệu</button>
-        </div>
-
-        <!-- Cấu trúc Tabs[cite: 1] -->
-        <div class="flex border-b bg-white px-4">
-            <button class="tab-btn active px-4 py-3" onclick="switchTab('tab-sum')">Form Sum</button>
-            <button class="tab-btn px-4 py-3" onclick="switchTab('tab-detail')">Form Detail</button>
-            <button class="tab-btn px-4 py-3" onclick="switchTab('tab-logic')">Logic</button>
-        </div>
-
-        <!-- Nội dung Tabs -->
-        <main class="flex-1 p-4 overflow-hidden">
-            <!-- Loading Indicator -->
-            <div id="loading" class="hidden text-center text-blue-600 py-10">Đang xử lý dữ liệu (Fetching & Calculating FIFO)...</div>
-
-            <!-- Tab: Form Sum -->
-            <div id="tab-sum" class="tab-content active bg-white p-4 shadow rounded table-container">
-                <table class="min-w-full table-auto border-collapse border border-gray-300 text-sm" id="table-sum">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="border p-2">Warehouse</th>
-                            <th class="border p-2">Product Code</th>
-                            <th class="border p-2">Product Name</th>
-                            <th class="border p-2">Stock Onhand</th>
-                            <th class="border p-2">In Transit</th>
-                            <th class="border p-2">Sell Out</th>
-                            <th class="border p-2">Ending Inventory</th>
-                            <th class="border p-2">Stock Coverday</th>
-                        </tr>
-                    </thead>
-                    <tbody><!-- Render via JS --></tbody>
-                </table>
-            </div>
-
-            <!-- Tab: Form Detail (Thuật toán Trừ lùi FIFO) -->
-            <div id="tab-detail" class="tab-content bg-white p-4 shadow rounded table-container">
-                <table class="min-w-full table-auto border-collapse border border-gray-300 text-sm" id="table-detail">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="border p-2">Warehouse</th>
-                            <th class="border p-2">Product Code</th>
-                            <th class="border p-2">EXP Date</th>
-                            <th class="border p-2">Stock Onhand</th>
-                            <th class="border p-2">In Transit</th>
-                            <th class="border p-2">Ending Inv (Lô)</th>
-                            <th class="border p-2">Remaining % Shelf-life</th>
-                            <th class="border p-2">Warning</th>
-                            <th class="border p-2">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody><!-- Render via JS --></tbody>
-                </table>
-            </div>
-
-            <!-- Tab: Logic -->
-            <div id="tab-logic" class="tab-content bg-white p-4 shadow rounded table-container">
-                <table class="min-w-full table-auto border-collapse border border-gray-300 text-sm">
-                    <thead>
-                        <tr class="bg-gray-100">
-                            <th class="border p-2">Cảnh báo</th>
-                            <th class="border p-2">Điều Kiện Logic</th>
-                            <th class="border p-2">Hành Động</th>
-                        </tr>
-                    </thead>
-                    <tbody id="table-logic-body">
-                        <!-- Render tĩnh từ yêu cầu[cite: 6, 9] -->
-                        <tr><td class="border p-2 text-red-600 font-bold">Hết hạn SD</td><td class="border p-2">%_Remaining_Shelf_Life <= 0%</td><td class="border p-2">Cách ly lô hàng chờ hủy</td></tr>
-                        <tr><td class="border p-2 text-red-500 font-bold">Thiếu hàng</td><td class="border p-2">Total_SKU_Available_Stock < Total_Demand</td><td class="border p-2">Lên PO đặt hàng</td></tr>
-                        <tr><td class="border p-2 text-orange-600 font-bold">Thiếu hàng kênh MT</td><td class="border p-2">Tồn kho đủ nhưng MT_Qualified_Stock < MT_Demand</td><td class="border p-2">Đẩy nhanh tiến độ / Lên PO</td></tr>
-                        <tr><td class="border p-2 text-orange-500 font-bold">Hủy hàng</td><td class="border p-2">10% <= %_Remaining_Shelf_Life < 30%</td><td class="border p-2">CTKM lớn xả tồn</td></tr>
-                        <tr><td class="border p-2 text-yellow-500 font-bold">Cận date</td><td class="border p-2">30% <= %_Remaining_Shelf_Life < 50%</td><td class="border p-2">Tính CTKM clear tồn sớm</td></tr>
-                        <tr><td class="border p-2 text-green-600 font-bold">An toàn</td><td class="border p-2">Tồn kho đủ, HSD >= 65%</td><td class="border p-2">Bán FIFO</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </main>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tab-sum">Form sum</button>
+      <button class="tab-btn" data-tab="tab-detail">Form detail</button>
+      <button class="tab-btn" data-tab="tab-logic">Logic</button>
     </div>
 
-    <!-- Mã JS Điều khiển -->
-    <script>
-        // 1. Khởi tạo Supabase (Đổi tên biến thành supabaseClient để tránh lỗi trùng lặp)
-        const SUPABASE_URL = 'https://didthuazwmuxddlxhkob.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw';
-        const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    <div class="content">
+      <div id="tab-sum" class="tab-content">
+        <table id="tbl-sum">
+          <thead><tr><th>Kho</th><th>SKU</th><th>Tên SP</th><th>Tồn đầu</th><th>In Transit</th><th>Sell Out</th><th>Ending SKU</th><th>Cảnh báo</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      
+      <div id="tab-detail" class="tab-content hidden">
+        <table id="tbl-detail">
+          <thead><tr><th>Kho</th><th>SKU</th><th>Ngày MNF</th><th>Ngày EXP</th><th>% HSD</th><th>Tồn cuối lô</th><th>Cảnh báo lô</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
 
-        // Biến lưu trữ Data thô
-        let rawOnhand = [], rawTransit = [], rawMaster = [], rawSalesPlan = [], rawQAD = [];
-        let processedData = []; 
-        let isVietnamese = true;
+      <div id="tab-logic" class="tab-content hidden">
+        <table id="tbl-logic">
+          <thead><tr><th>Cảnh báo</th><th>Điều Kiện Logic</th><th>Rủi ro thực tế</th><th>Hành Động</th></tr></thead>
+          <tbody id="tbody-logic"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
 
-        // 2. Logic Auth
-        async function handleLogin() {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const errorMsg = document.getElementById('login-error');
-            
-            // Sử dụng supabaseClient thay vì supabase
-            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-            
-            if (error) {
-                errorMsg.textContent = error.message;
-                errorMsg.classList.remove('hidden');
-            } else {
-                document.getElementById('login-screen').classList.add('hidden');
-                document.getElementById('dashboard-screen').classList.remove('hidden');
-            }
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+    // 1. Cấu hình Supabase & Hằng số
+    const supabase = createClient('https://didthuazwmuxddlxhkob.supabase.co', 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw');
+    const PLAN_URL = 'https://script.google.com/macros/s/AKfycbxO9zT33UapiEpEoCgRGQXr6uexQ-WIToK74iS_pXVMob_zA7Fw81l8AtpX1tZvRrOZuw/exec';
+    
+    const DAY = 86400000;
+    const EPS = 1e-6;
+    const WARNING_LABELS = {
+      SOLD_OUT: 'Đã xuất hết', EXPIRED: 'Hết hạn SD', SHORTAGE: 'Thiếu hàng',
+      MT_SHORT: 'Thiếu hàng kênh MT', DISCARD: 'Hủy hàng', NEAR_DATE: 'Cận date',
+      BELOW_SAFETY: 'Dưới an toàn', OVERSTOCK: 'Vượt nhu cầu', SAFE: 'An toàn', UNCLASSIFIED: 'Chưa phân loại'
+    };
+    const THRESHOLDS = { DISCARD_MIN: 10, DISCARD_MAX: 30, NEAR_MAX: 50, SAFE_MIN: 65, MT_MIN: 60, SAFETY_DAYS: 14 };
+
+    // Bộ thu thập lỗi chất lượng dữ liệu
+    const dq = {
+      items: [],
+      add(code, value, ctx) { this.items.push({ code, value, ctx }); this.updateUI(); },
+      clear() { this.items.length = 0; this.updateUI(); },
+      updateUI() {
+        const el = document.getElementById('dq-alert');
+        if (this.items.length > 0) {
+          el.classList.remove('hidden');
+          document.getElementById('dq-count').textContent = this.items.length;
+        } else {
+          el.classList.add('hidden');
         }
+      }
+    };
 
-        async function handleLogout() {
-            // Sử dụng supabaseClient thay vì supabase
-            await supabaseClient.auth.signOut();
-            document.getElementById('dashboard-screen').classList.add('hidden');
-            document.getElementById('login-screen').classList.remove('hidden');
-        }
+    // 2. Logic Đa ngôn ngữ (Localization)
+    const DICT = {
+      'vi': { title: 'Báo cáo tổng hợp tồn kho', login: 'Đăng nhập hệ thống' },
+      'en': { title: 'Inventory Summary Report', login: 'System Login' }
+    };
+    window.setLang = (lang) => {
+      document.getElementById('lbl-app-title').textContent = DICT[lang].title;
+      document.getElementById('lbl-login-title').textContent = DICT[lang].login;
+    };
 
-        // 3. UI Navigation
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-            document.getElementById(tabId).classList.add('active');
-            event.currentTarget.classList.add('active');
-        }
+    // 3. Hàm Tiện ích & Chuẩn hóa
+    const round3 = (x) => Math.round(x * 1000) / 1000;
+    const normKey = (v) => (v == null ? '' : String(v)).trim().toUpperCase();
+    
+    // Ánh xạ mã kho (Location Mapping)
+    const LOCATION_MAP = { '11001': 'South', '15001': 'North', 'SOUTH': 'South', 'NORTH': 'North', 'HCMC': 'South', 'HANOI': 'North' };
+    function normLocation(v, ctx) {
+      const r = LOCATION_MAP[normKey(v)];
+      if (!r) { dq.add('LOCATION_UNKNOWN', normKey(v), ctx); return null; }
+      return r;
+    }
 
-        function toggleLanguage() {
-            isVietnamese = !isVietnamese;
-            document.getElementById('title-vi').classList.toggle('hidden');
-            document.getElementById('title-en').classList.toggle('hidden');
-        }
+    // Xử lý mã QAD (Loại bỏ hậu tố -01)
+    function processQADItemNumber(itemNum) {
+      const code = normKey(itemNum);
+      if (code.startsWith('CKCT') || code.startsWith('MD') || code.startsWith('QD')) return null;
+      return code.endsWith('-01') ? code.slice(0, -3) : code;
+    }
 
-        // 4. Tiện ích xử lý dữ liệu
-        function parseExcelDate(excelDate) {
-            if (!excelDate) return null;
-            if (typeof excelDate === 'number') {
-                return new Date(Math.round((excelDate - 25569) * 86400 * 1000));
-            }
-            return new Date(excelDate);
-        }
+    // Chuẩn hóa ngày Excel sang UTC
+    function parseExcelDate(v) {
+      if (!v) return null;
+      if (v instanceof Date) return new Date(Date.UTC(v.getFullYear(), v.getMonth(), v.getDate()));
+      if (typeof v === 'number' && v > 0 && v <= 80000) return new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * DAY);
+      return null;
+    }
+    const isoDay = (d) => (d ? d.toISOString().slice(0, 10) : 'N/A');
 
-        // 5. Lấy Data từ Supabase Storage và xử lý file Excel
-        async function fetchExcelFromSupabase(bucket, filePath) {
-            // Sử dụng supabaseClient thay vì supabase
-            const { data, error } = await supabaseClient.storage.from(bucket).download(filePath);
-            if (error) throw error;
-            const buffer = await data.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array' });
-            return XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
-        }
+    // Tạo Element an toàn chống XSS
+    function createCell(tr, text, cssClass = '') {
+      const td = document.createElement('td');
+      td.textContent = text; // Sử dụng textContent để chống XSS
+      if (cssClass) td.className = cssClass;
+      tr.appendChild(td);
+    }
 
-        async function loadData() {
-            document.getElementById('loading').classList.remove('hidden');
-            try {
-                const bucket = 'inventory';
-                const folder = '28.09.2026'; 
-                
-                // MOCK DATA ĐỂ TRÁNH LỖI KHI DEPLOY NẾU STORAGE CHƯA CẤU HÌNH CORS:
-                console.log("Fetching logic initiated...");
-                runFIFOLogic(); 
-            } catch (error) {
-                console.error("Lỗi tải dữ liệu:", error);
-                alert("Lỗi tải dữ liệu, vui lòng kiểm tra Supabase Storage / CORS.");
-            }
-            document.getElementById('loading').classList.add('hidden');
-        }
+    // 4. Thuật toán Lõi (FIFO & Cảnh báo)
+    function cmpExp(a, b) {
+      const x = a ? +a : Infinity, y = b ? +b : Infinity;
+      return x === y ? 0 : (x < y ? -1 : 1);
+    }
 
-        // 6. THUẬT TOÁN FIFO & PRE-SCAN MT (Cốt lõi)
-        function runFIFOLogic() {
-            const selectedLine = document.getElementById('filter-product-line').value;
-            const selectedMonth = parseInt(document.getElementById('filter-month').value);
-            let allBatches = []; 
-            
-            allBatches.sort((a, b) => {
-                if (a.Location !== b.Location) return a.Location.localeCompare(b.Location);
-                if (a.SKU_Code !== b.SKU_Code) return a.SKU_Code.localeCompare(b.SKU_Code);
-                return parseExcelDate(a.Expiry_Date) - parseExcelDate(b.Expiry_Date);
-            });
+    // Thuật toán FIFO trừ lùi Sell out
+    function allocateFIFO(lots, sellOut) {
+      const sorted = [...lots].sort((a, b) => cmpExp(a.exp, b.exp) || (a.sku < b.sku ? -1 : 1));
+      let remaining = Math.max(0, sellOut);
+      for (const l of sorted) {
+        const take = remaining > EPS ? Math.min(l.qty, remaining) : 0;
+        l.endQty = round3(l.qty - take);
+        remaining = round3(remaining - take);
+      }
+      return { lots: sorted, unmet: remaining };
+    }
 
-            applyFilters(); 
-        }
+    // Cây điều kiện logic cảnh báo
+    function evaluateWarning(c) {
+      const T = THRESHOLDS;
+      const hasPct = c.pct !== null;
+      if (c.endQty <= EPS) return 'SOLD_OUT';
+      if (hasPct && c.pct <= 0) return 'EXPIRED';
+      if (c.skuClosing < 0) return 'SHORTAGE';
+      if (c.skuAvailable >= c.totalDemand && c.mtQualified < c.mtDemand) return 'MT_SHORT';
+      if (hasPct && c.pct >= T.DISCARD_MIN && c.pct < T.DISCARD_MAX) return 'DISCARD';
+      if (hasPct && c.pct >= T.DISCARD_MAX && c.pct < T.NEAR_MAX) return 'NEAR_DATE';
+      if (c.coverDays !== null && c.coverDays < T.SAFETY_DAYS) return 'BELOW_SAFETY';
+      if (hasPct && c.pct >= T.SAFE_MIN) return 'SAFE';
+      return 'UNCLASSIFIED';
+    }
 
-        // 7. Hậu xử lý & Render
-        function applyFilters() {
-            const warningFilter = document.getElementById('filter-warning').value;
-            const tbodySum = document.querySelector('#table-sum tbody');
-            const tbodyDetail = document.querySelector('#table-detail tbody');
-            tbodySum.innerHTML = ''; tbodyDetail.innerHTML = '';
+    // 5. Xác thực và Quản lý UI
+    const uiLogin = document.getElementById('login-screen');
+    const uiApp = document.getElementById('app-screen');
 
-            tbodyDetail.innerHTML = `
-                <tr>
-                    <td class="border p-2">South</td>
-                    <td class="border p-2">110201390017</td>
-                    <td class="border p-2">8/23/2027</td>
-                    <td class="border p-2">3051</td>
-                    <td class="border p-2">5535</td>
-                    <td class="border p-2 font-bold">1200</td>
-                    <td class="border p-2 text-yellow-600">45%</td>
-                    <td class="border p-2 bg-yellow-100 text-yellow-800">Cận date</td>
-                    <td class="border p-2">Tính CTKM clear tồn sớm</td>
-                </tr>
-            `;
-            tbodySum.innerHTML = `
-                <tr>
-                    <td class="border p-2">South & North</td>
-                    <td class="border p-2">110201390017</td>
-                    <td class="border p-2">Mix Ot Cay 50g</td>
-                    <td class="border p-2">10000</td>
-                    <td class="border p-2">5535</td>
-                    <td class="border p-2">14335</td>
-                    <td class="border p-2 font-bold">1200</td>
-                    <td class="border p-2">2.5</td>
-                </tr>
-            `;
-        }
-    </script>
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session) {
+        uiLogin.classList.add('hidden');
+        uiApp.classList.remove('hidden');
+        // Ở kịch bản thực tế, gọi hàm tải file từ storage qua hàm loadAll() ở đây.
+        // loadAll().then(processData).catch(e => alert(e.message));
+        renderLogicTabMock(); // Mock dữ liệu bảng Logic theo yêu cầu không dùng eval
+      } else {
+        uiLogin.classList.remove('hidden');
+        uiApp.classList.add('hidden');
+      }
+    });
+
+    document.getElementById('btn-login').addEventListener('click', async () => {
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) document.getElementById('login-error').textContent = error.message;
+    });
+
+    document.getElementById('btn-logout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+    });
+
+    // Xử lý chuyển Tab
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+        e.target.classList.add('active');
+        document.getElementById(e.target.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    // Hàm render bảng Logic cứng (Không gọi eval)
+    function renderLogicTabMock() {
+      const tbody = document.getElementById('tbody-logic');
+      tbody.innerHTML = '';
+      const rules = [
+        { warn: 'Đã xuất hết', logic: 'Tồn kho lô = 0', risk: 'Không', action: 'Duy trì kế hoạch FIFO' },
+        { warn: 'Hết hạn SD', logic: '%HSD <= 0', risk: 'Không lưu thông', action: 'Cách ly, tiêu hủy' },
+        { warn: 'Thiếu hàng', logic: 'Tồn tổng < 0', risk: 'Thiếu hàng thực tế', action: 'Lên PO đặt hàng' }
+      ];
+      rules.forEach(r => {
+        const tr = document.createElement('tr');
+        createCell(tr, r.warn); createCell(tr, r.logic); createCell(tr, r.risk); createCell(tr, r.action);
+        tbody.appendChild(tr);
+      });
+    }
+
+  </script>
 </body>
 </html>
