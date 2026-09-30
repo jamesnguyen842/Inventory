@@ -51,7 +51,6 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
   <input id="em" type="email" placeholder="Email" autocomplete="username">
   <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
   <button class="pri" id="btnLogin">Đăng nhập</button>
-  <button id="btnDemo">Chạy dữ liệu mẫu</button>
   <div class="err" id="loginErr"></div>
 </div>
 
@@ -123,29 +122,29 @@ const T = {
 };
 
 const ST = {
- SAFE:['An toàn','Safe','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.'],
- WATCH:['Theo dõi (HSD 50–65%)','Watch (50–65%)','wt', 'Rủi ro dẫn đến bước Cận date (<50% HSD)', 'Yêu cầu tăng cường kế hoạch bán hàng'],
- NEAR:['Cận date (<50%)','Near expiry (<50%)','nr', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM clear tồn sớm'],
- DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM lớn xả tồn'],
- EXPIRED:['Hết hạn SD','Expired','ex', 'Lô hàng đã chính thức hết HSD, không được phép lưu thông trên thị trường.', 'Cách ly Lô hàng chờ hủy'],
- SHORT:['Thiếu hàng','Out of stock','ex', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Lên PO đặt hàng\nCân chỉnh hàng hóa giữa các kênh và khách hàng'],
- SHORT_MT:['Thiếu hàng kênh MT','MT channel shortage','dp', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết'],
- BELOW:['Dưới an toàn','Below safety','nr', 'Rất dễ thiếu hàng nếu Demand vọt lên hoặc PO về trễ.', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết\nCân chỉnh hàng hóa giữa các kênh'],
- OVER:['Vượt nhu cầu','Over demand','wt', 'Rủi ro tồn đọng hàng dẫn đến trạng thái Theo dõi (HSD 50–65%)', 'Yêu cầu tăng cường kế hoạch bán hàng và cân chỉnh lại PO đặt hàng cho lần kế tiếp'],
- EMPTY:['Đã xuất hết','Out of batch','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.']
+ SAFE:['An toàn','Safe','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.', 'None', 'Maintain sales plan and issue goods according to FIFO standard.'],
+ WATCH:['Theo dõi (HSD 50–65%)','Watch (50–65%)','wt', 'Rủi ro dẫn đến bước Cận date (<50% HSD)', 'Yêu cầu tăng cường kế hoạch bán hàng', 'Risk of leading to Near Expiry (<50% Shelf-life)', 'Request to increase sales plan'],
+ NEAR:['Cận date (<50%)','Near expiry (<50%)','nr', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM clear tồn sớm', 'Risk of disposal or need promotion to clear stock', 'Need to plan promotion to clear stock early'],
+ DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM lớn xả tồn', 'Risk of disposal or need promotion to clear stock', 'Need big promotion to clear stock'],
+ EXPIRED:['Hết hạn SD','Expired','ex', 'Lô hàng đã chính thức hết HSD, không được phép lưu thông trên thị trường.', 'Cách ly Lô hàng chờ hủy', 'Batch has officially expired, not allowed for market circulation.', 'Isolate batch for disposal'],
+ SHORT:['Thiếu hàng','Out of stock','ex', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Lên PO đặt hàng\nCân chỉnh hàng hóa giữa các kênh và khách hàng', 'Actual shortage.\nCustomers/Supermarkets will lock code', 'Issue PO to order\nBalance goods between channels and customers'],
+ SHORT_MT:['Thiếu hàng kênh MT','MT channel shortage','dp', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết', 'Actual shortage.\nCustomers/Supermarkets will lock code', 'Accelerate delivery schedule\nIssue PO if out of stock'],
+ BELOW:['Dưới an toàn','Below safety','nr', 'Rất dễ thiếu hàng nếu Demand vọt lên hoặc PO về trễ.', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết\nCân chỉnh hàng hóa giữa các kênh', 'High risk of shortage if Demand spikes or PO delays.', 'Accelerate delivery schedule\nIssue PO if out of stock\nBalance goods between channels'],
+ OVER:['Vượt nhu cầu','Over demand','wt', 'Rủi ro tồn đọng hàng dẫn đến trạng thái Theo dõi (HSD 50–65%)', 'Yêu cầu tăng cường kế hoạch bán hàng và cân chỉnh lại PO đặt hàng cho lần kế tiếp', 'Risk of stagnation leading to Watch status (50-65% Shelf-life)', 'Request to increase sales plan and readjust PO for next order'],
+ EMPTY:['Đã xuất hết','Out of batch','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.', 'None', 'Maintain sales plan and issue goods according to FIFO standard.']
 };
 
 const RULES = [
- ['EMPTY','Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0', ST.EMPTY[3], ST.EMPTY[4]],
- ['SAFE','Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', ST.SAFE[3], ST.SAFE[4]],
- ['NEAR','30% <= %_Remaining_Shelf_Life < 50%', ST.NEAR[3], ST.NEAR[4]],
- ['DISPOSE','10% <= %_Remaining_Shelf_Life < 30%', ST.DISPOSE[3], ST.DISPOSE[4]],
- ['EXPIRED','%_Remaining_Shelf_Life <= 0% HOẶC Expiry_Date <= Current_Date', ST.EXPIRED[3], ST.EXPIRED[4]],
- ['SHORT','Total_SKU_Available_Stock < Total_SKU_Demand\n(Tính tổng tất cả các Lô + In-Transit trong tháng)', ST.SHORT[3], ST.SHORT[4]],
- ['BELOW','0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\nTồn kho tổng của SKU cuối tháng rơi xuống dưới mức dự phòng an toàn (< 2 tuần bán).', ST.BELOW[3], ST.BELOW[4]],
- ['SHORT_MT','Total_SKU_Closing_Stock >= Demand NHƯNG MT_Qualified_Stock < MT_Demand\nTổng kho SKU vẫn còn hàng (hoặc còn ở các Lô bị khóa MT HSD<60%)', ST.SHORT_MT[3], ST.SHORT_MT[4]],
- ['WATCH','50% <= %_Remaining_Shelf_Life <= 65%', ST.WATCH[3], ST.WATCH[4]],
- ['OVER','Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)', ST.OVER[3], ST.OVER[4]]
+ ['EMPTY','Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0', 'Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0'],
+ ['SAFE','Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', 'Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%'],
+ ['NEAR','30% <= %_Remaining_Shelf_Life < 50%', '30% <= %_Remaining_Shelf_Life < 50%'],
+ ['DISPOSE','10% <= %_Remaining_Shelf_Life < 30%', '10% <= %_Remaining_Shelf_Life < 30%'],
+ ['EXPIRED','%_Remaining_Shelf_Life <= 0% HOẶC Expiry_Date <= Current_Date', '%_Remaining_Shelf_Life <= 0% OR Expiry_Date <= Current_Date'],
+ ['SHORT','Total_SKU_Available_Stock < Total_SKU_Demand\n(Tính tổng tất cả các Lô + In-Transit trong tháng)', 'Total_SKU_Available_Stock < Total_SKU_Demand\n(Sum of all batches + In-Transit in month)'],
+ ['BELOW','0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\nTồn kho tổng của SKU cuối tháng rơi xuống dưới mức dự phòng an toàn (< 2 tuần bán).', '0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\nTotal SKU ending stock falls below safety buffer (< 2 weeks of sales).'],
+ ['SHORT_MT','Total_SKU_Closing_Stock >= Demand NHƯNG MT_Qualified_Stock < MT_Demand\nTổng kho SKU vẫn còn hàng (hoặc còn ở các Lô bị khóa MT HSD<60%)', 'Total_SKU_Closing_Stock >= Demand BUT MT_Qualified_Stock < MT_Demand\nTotal SKU stock is available (or locked in MT Shelf-life < 60%)'],
+ ['WATCH','50% <= %_Remaining_Shelf_Life <= 65%', '50% <= %_Remaining_Shelf_Life <= 65%'],
+ ['OVER','Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)', 'Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)']
 ];
 
 /* ============ TIỆN ÍCH ============ */
@@ -283,7 +282,6 @@ function normalize(raw) {
     g.life = m ? m.life : 0; 
   });
   
-  // BỘ LỌC NGAY SAU KHI CHUẨN HÓA DATA: Chỉ lấy đúng 4 ngành hàng
   return [...G.values()].filter(g => /mix|biteez|parteez|yappy/i.test(String(g.name)));
 }
 
@@ -334,7 +332,10 @@ function compute(M, lineFilter, nameFilterStr) {
     else if (R.so > 0 && R.ending < R.so / days * 14) sku = 'BELOW';
     else if (limit != null && R.ending > limit) sku = 'OVER';
     
-    const cov = R.ending < 0 ? 0 : (R.so > 0 ? (R.ending / R.so) * days : null);
+    // NEW COVERDAY LOGIC
+    const isReportingMonthEOM = SELECTED_FOLDERS.some(f => f.m === M && f.isEOM && f.y === CURRENT_YEAR);
+    const covDem = isReportingMonthEOM ? (g.qad[M] || 0) : (g.plan[M] || 0);
+    const cov = R.ending < 0 ? 0 : (covDem > 0 ? (R.ending / covDem) * days : null);
     
     out.push({ ...R, g, days, cov, sku, lots: dl, mtQual, mtDem });
   });
@@ -353,8 +354,6 @@ function passWarn(w, skuSt, lotSts) {
 }
 function render() {
   if (!DB) return;
-  $('#ttl').textContent = tt('ttl'); document.title = tt('ttl');   $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
-  $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
   
@@ -362,33 +361,59 @@ function render() {
   
   let h = '';
   if (tab === 'sum') {
+    let tBegin = 0, tTr = 0, tSo = 0, tEnd = 0;
     const body = rows.filter(r => passWarn(w, r.sku, r.lots.map(l => l.st))).map(r => {
+      tBegin += r.begin; tTr += r.tr; tSo += r.so; tEnd += r.ending;
       const worst = r.lots.length ? r.lots.reduce((a, b) => (b.h ?? 1e9) < (a.h ?? 1e9) ? b : a).st : '';
       const stKey = r.sku || worst || 'EMPTY';
-      const risk = ST[stKey]?.[3] || '', act = ST[stKey]?.[4] || '';
+      const risk = ST[stKey]?.[lang === 'vi' ? 3 : 5] || '';
+      const act = ST[stKey]?.[lang === 'vi' ? 4 : 6] || '';
       return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
     }).join('');
-    h = body ? `<div class="wrap"><table>${th('loc','sku','prodT','lineC','begin','tr','so','end','cov','st','risk','act')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
+    
+    const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
+    const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="4" style="text-align:right">${subtext}</td>${num(tBegin)}${num(tTr)}${num(tSo)}${num(tEnd, 1)}<td></td><td></td><td></td><td></td></tr>` : '';
+    
+    h = body ? `<div class="wrap"><table>${th('loc','sku','prodT','lineC','begin','tr','so','end','cov','st','risk','act')}${body}${subRow}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } else if (tab === 'det') {
-    let body = '';
+    let body = '', tQty = 0;
     rows.forEach(r => r.lots.forEach(l => {
       if (!passWarn(w, r.sku, [l.st]) && !(w === r.sku)) return;
       if (w !== 'ALL' && w !== r.sku && l.st !== w && !(w === 'SAFE' && l.st === 'SAFE' && !r.sku)) return;
+      
+      tQty += l.qty;
       const stKey = l.st || 'EMPTY';
-      const risk = ST[stKey]?.[3] || '', act = ST[stKey]?.[4] || '';
+      const risk = ST[stKey]?.[lang === 'vi' ? 3 : 5] || '';
+      const act = ST[stKey]?.[lang === 'vi' ? 4 : 6] || '';
       const d = x => x ? new Date(x).toISOString().slice(0, 10) : '—';
       body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
     }));
-    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nDet')}</div>` : `<div class="empty">${tt('empty')}</div>`;
+    
+    const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
+    const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="5" style="text-align:right">${subtext}</td>${num(tQty)}<td></td><td></td><td></td><td></td><td></td></tr>` : '';
+
+    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}${subRow}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nDet')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } else {
-    h = `<div class="wrap"><table>${th('st','cond','risk','act')}${RULES.map(r => `<tr><td>${badge(r[0])}</td><td style="white-space:normal;min-width:280px">${esc(r[1]).replace(/\n/g,'<br>')}</td><td style="white-space:normal;min-width:180px">${esc(r[2])}</td><td style="white-space:normal;min-width:220px">${esc(r[3]).replace(/\n/g,'<br>')}</td></tr>`).join('')}</table></div>`;
+    h = `<div class="wrap"><table>${th('st','cond','risk','act')}${RULES.map(r => {
+      const cond = lang === 'vi' ? r[1] : r[2];
+      const risk = ST[r[0]]?.[lang === 'vi' ? 3 : 5] || '';
+      const act = ST[r[0]]?.[lang === 'vi' ? 4 : 6] || '';
+      return `<tr><td>${badge(r[0])}</td><td style="white-space:normal;min-width:280px">${esc(cond).replace(/\n/g,'<br>')}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
+    }).join('')}</table></div>`;
   }
   $('#view').innerHTML = h;
 }
 
 /* ============ KHỞI TẠO GIAO DIỆN & TẢI DỮ LIỆU ============ */
 function setLang(l) {
-  lang = l; $('#lvi').classList.toggle('on', l === 'vi'); $('#len').classList.toggle('on', l === 'en');   $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
+  lang = l; 
+  $('#lvi').classList.toggle('on', l === 'vi'); 
+  $('#len').classList.toggle('on', l === 'en');      $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
+  
+  // Hiển thị Tiêu đề và nút Đăng xuất ngay khi đổi ngôn ngữ (sau login)
+  $('#ttl').textContent = tt('ttl'); document.title = tt('ttl');
+  $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
+  
   if(DB) { fillFilters(); render(); }
 }
 
@@ -491,17 +516,9 @@ function addFolderSelect() {
   }
 }
 
-function enterDemo(raw) {
-  SELECTED_FOLDERS = [{name:'30.09.2026', d:30, m:9, y:2026, isEOM:true}];
-  $('#login').hidden = true; $('#app').hidden = false; setLang(lang);
-  $('#dataStatus').textContent = tt('demo');
-  DB = normalize(raw); fillFilters(); render();
-}
-
 /* ============ SỰ KIỆN ============ */
 $('#btnLogin').onclick = login;
 $('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
-$('#btnDemo').onclick = () => enterDemo(demoData());
 $('#btnOut').onclick = async () => { try { await sb?.auth.signOut(); } catch (e) {} location.reload(); };
 $('#lvi').onclick = () => setLang('vi'); $('#len').onclick = () => setLang('en');
 $('#btnAddFolder').onclick = addFolderSelect;
@@ -510,20 +527,6 @@ $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
 $('#fProd').oninput = render;
 ['#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);$$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
 
-function demoData() {
-  CURRENT_YEAR = 2026;
-  const U = (y, m, d) => Date.UTC(y, m - 1, d);
-  const mk = (code, name, line, life) => ({ 'Item Code_QAD': code, 'TÊN HH-Vnsese Description': name, 'EA Qty #1 (CT)': 1, 'EA Qty #2 (Pack)': 10, 'EA Qty #3 (Cn)': 40, 'Product Line': line, 'Useful Life(Month': life });
-  const oh = (loc, sku, line, mnf, exp, q) => ({ Location: loc, SKU_Code: sku, 'Product Line': line, 'MNF Date': mnf, 'Expiry Date': exp, 'Q.ty On-Hand': q });
-  const pl = (w, sku, ch, mo, q) => ({ Warehouse: w, 'Product Line': '', SKU_Code: sku, Channel: ch, Month: mo, 'Sell Plan': q });
-  return {
-    master: [mk('110301460001', 'MIX Hot Chili 150g', 'MIX', 12), mk('110301470001', 'BiteeZ Fish Sheet 18g', 'BiteeZ', 9), mk('110301480001', 'Yappy Snack 30g', 'Yappy VN', 12)],
-    onhand: [oh('South', '110301460001', 'MIX', "10/01/2026", "10/01/2027", 400), oh('South', '110301460001', 'MIX', "01/06/2026", "01/06/2027", 300), oh('South', '110301470001', 'BiteeZ', "15-Jan", "15-Oct", 500), oh('North', '110301480001', 'Yappy VN', "01-Mar", "01-Mar-27", 250)],
-    transit: [{ PO_No: 'PO1', Location: 11001, Item_Code: '', 'Item Code_QAD': '110301460001', Expiry_Date: U(2027,9,1), ETA_Date: U(2026,10,20), 'In transit_Qty': 600 }],
-    qad: [{ 'Item Number': '110301460001-01', 'Unit of Measure': 'CT', 'Qty Invoiced': 350, HQ: 'HCMC', 'Invoice Date': U(2026,9,5), 'Key Cus': 'MT' }],
-    plan: [pl('South','110301460001','MT','Oct',300), pl('South','110301460001','TT','Oct',500)], unit: []
-  };
-}
 </script>
 </body>
 </html>
