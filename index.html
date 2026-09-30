@@ -72,6 +72,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
   <div class="filters">
     <label><span data-t="year"></span><select id="fYear"></select></label>
     <label><span data-t="month"></span><select id="fMonth"></select></label>
+    <label><span data-t="loc"></span><select id="fLoc"></select></label>
     <label><span data-t="line"></span><select id="fLine"></select></label>
     <label><span data-t="prod"></span><input type="text" id="fProd" placeholder="Gõ tên SP..."></label>
     <label><span data-t="warn"></span><select id="fWarn"></select></label>
@@ -290,14 +291,21 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-function compute(M, lineFilter, nameFilterStr) {
+f// Thêm tham số locFilter
+function compute(M, lineFilter, nameFilterStr, locFilter) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
   const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
+  // THÊM: Tạo regex cho điều kiện Kho
+  const locRe = locFilter && locFilter !== 'ALL' ? new RegExp('^' + locFilter + '$', 'i') : null;
 
   DB.forEach(g => {
+    // THÊM: Bỏ qua nếu không khớp Kho
+    if (locRe && !locRe.test(String(g.loc || ''))) return;
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
+    
+    // ... (Giữ nguyên toàn bộ code phía dưới của hàm compute)
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
     CFG.months.filter(m => m <= M).forEach(m => {
@@ -359,12 +367,13 @@ function render() {
   if (!DB) return;
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
+  // THÊM: Lấy giá trị kho đang chọn
+  const locv = $('#fLoc').value; 
   
-  // TỐI ƯU HIỆU NĂNG: Chỉ tính toán lại (compute) nếu bộ lọc thay đổi. 
-  // Chuyển tab sẽ không bị khựng nữa vì dùng lại cachedRows.
-  const currentFilterKey = `${M}_${lv}_${nv}`;
+  // THÊM: Đưa biến kho (locv) vào key để bộ đệm nhận biết thay đổi và hàm compute
+  const currentFilterKey = `${M}_${lv}_${nv}_${locv}`;
   if (lastFilterKey !== currentFilterKey) {
-    cachedRows = compute(M, lv, nv);
+    cachedRows = compute(M, lv, nv, locv);
     lastFilterKey = currentFilterKey;
   }
   const rows = cachedRows;
@@ -431,6 +440,9 @@ function fillFilters() {
   const curL = $('#fLine').value;
   $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ'][i]}</option>`).join('');
   if (curL) $('#fLine').value = curL;
+  const curLoc = $('#fLoc').value || 'ALL';
+  $('#fLoc').innerHTML = `<option value="ALL">${tt('all')}</option><option value="South">South</option><option value="North">North</option>`;
+  $('#fLoc').value = curLoc;
   fillMonthDropdown(); fillWarn();
 }
 function fillMonthDropdown() {
@@ -535,7 +547,7 @@ $('#btnAddFolder').onclick = addFolderSelect;
 $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
 $('#fProd').oninput = render;
-['#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
+['#fLoc', '#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
 $$('.tabs button').forEach(b => b.onclick = () => { 
   tab = b.dataset.tab; 
   // Cập nhật lại viền xanh ngay lập tức khi click
