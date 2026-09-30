@@ -291,7 +291,7 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-f// Thêm tham số locFilter
+// Thêm tham số locFilter
 function compute(M, lineFilter, nameFilterStr, locFilter) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
@@ -500,7 +500,10 @@ function addFolderSelect() {
   const sel = document.createElement('select');
   sel.className = 'folder-sel';
   sel.innerHTML = '<option value="">-- Chọn ngày --</option>' + ALL_FOLDERS.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
-  $('#folder-container').appendChild(sel); }  async function confirmLoadData() {   const sels = $$('.folder-sel').map(s => s.value).filter(Boolean);
+  $('#folder-container').appendChild(sel); 
+}  
+  async function confirmLoadData() {   
+  const sels = $$('.folder-sel').map(s => s.value).filter(Boolean);
   if (!sels.length) return alert(tt('reqErr'));
   
   const selected = sels.map(name => ALL_FOLDERS.find(f => f.name === name));
@@ -537,7 +540,6 @@ function addFolderSelect() {
     $('#dataStatus').textContent = 'Lỗi: ' + e.message;
   }
 }
-
 /* ============ SỰ KIỆN ============ */
 $('#btnLogin').onclick = login;
 $('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
