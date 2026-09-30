@@ -535,8 +535,13 @@ $('#btnAddFolder').onclick = addFolderSelect;
 $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
 $('#fProd').oninput = render;
-['#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);$$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; render(); });
-
+['#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
+$$('.tabs button').forEach(b => b.onclick = () => { 
+  tab = b.dataset.tab; 
+  // Cập nhật lại viền xanh ngay lập tức khi click
+  $$('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab));
+  render(); 
+});  
 </script>
 </body>
 </html>
