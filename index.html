@@ -352,12 +352,22 @@ function passWarn(w, skuSt, lotSts) {
   if (w === 'ALL') return true;
   return skuSt === w || lotSts.includes(w) || (w === 'SAFE' && !skuSt && lotSts.every(s => s === 'SAFE'));
 }
+let lastFilterKey = '';
+let cachedRows = [];
+
 function render() {
   if (!DB) return;
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
   
-  const rows = compute(M, lv, nv);
+  // TỐI ƯU HIỆU NĂNG: Chỉ tính toán lại (compute) nếu bộ lọc thay đổi. 
+  // Chuyển tab sẽ không bị khựng nữa vì dùng lại cachedRows.
+  const currentFilterKey = `${M}_${lv}_${nv}`;
+  if (lastFilterKey !== currentFilterKey) {
+    cachedRows = compute(M, lv, nv);
+    lastFilterKey = currentFilterKey;
+  }
+  const rows = cachedRows;
   
   let h = '';
   if (tab === 'sum') {
