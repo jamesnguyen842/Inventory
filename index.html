@@ -308,6 +308,7 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
     // ... (Giữ nguyên toàn bộ code phía dưới của hàm compute)
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
+    const latestFolder = [...SELECTED_FOLDERS].sort((a, b) => (a.y - b.y) || (a.m - b.m) || (a.d - b.d)).pop();
     CFG.months.filter(m => m <= M).forEach(m => {
       const begin = sum(lots) - deficit, inn = g.tr.filter(t => t.m === m);
       inn.forEach(t => lots.push({ ...t }));
@@ -317,17 +318,24 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
       const eomMonth = SELECTED_FOLDERS.find(f => f.m === m && f.isEOM && f.y === CURRENT_YEAR);
       if (eomMonth) {
           so = 0; 
+      } else if (latestFolder && m > latestFolder.m) {
+          // BẢN VÁ: Nếu là tháng tương lai (chưa có QAD), lấy full Sales Plan
+          so = g.plan[m] || 0;
       } else {
           so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
       }
 
-      let rem = so + deficit;
+      let rem = so + deficit; // <-- Chỉ giữ 1 dòng này
       for (const l of lots) { if (rem <= 0) break; const t = Math.min(l.qty, rem); l.qty -= t; rem -= t; }
       deficit = rem;
       R = { begin, tr: sum(inn), so, ending: sum(lots) - deficit };
     });
     if (!R) return;
-    const mtDem = remain(g.mtPlan, g.mtQad, M), totalDem = R.so;
+    // BẢN VÁ: Chặn trừ mtQad nếu đang xem báo cáo của tháng tương lai
+    const isFutureM = latestFolder && M > latestFolder.m;
+    const mtDem = isFutureM ? (g.mtPlan[M] || 0) : remain(g.mtPlan, g.mtQad, M);
+    
+    const totalDem = R.so;
     const dl = lots.filter(l => l.qty > 0).map(l => {
       const h = l.exp && l.mnf && l.exp > l.mnf ? (l.exp - end) / (l.exp - l.mnf) * 100 : null;
       return { ...l, h, st: lotStatus(h) };
