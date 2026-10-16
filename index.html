@@ -42,6 +42,13 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 .ex{color:#a3201a;background:#f8d7d4;border-color:#e59b95}
 .note{color:var(--mut);margin:0 0 10px}
 .empty{padding:28px;text-align:center;color:var(--mut)}
+/* CSS Bảng HSD & MT */
+.hsd-30 { background-color: #C65911; color: white; text-align: center; font-weight: bold; }
+.hsd-50 { background-color: #F4B084; text-align: center; font-weight: bold; }
+.hsd-60 { background-color: #FFFF00; text-align: center; font-weight: bold; }
+.hsd-70 { background-color: #A9D08E; text-align: center; font-weight: bold; }
+.hsd-gt70 { background-color: #548235; color: white; text-align: center; font-weight: bold; }
+.text-center { text-align: center !important; }
 </style>
 </head>
 <body>
@@ -79,7 +86,11 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
   </div>
   
   <div class="tabs">
-    <button data-tab="sum" class="on"></button><button data-tab="det"></button><button data-tab="logic"></button>
+    <button data-tab="sum" class="on"></button>
+    <button data-tab="det"></button>
+    <button data-tab="mt"></button>
+    <button data-tab="inv"></button>
+    <button data-tab="logic"></button>
   </div>
   <main><div id="view"></div></main>
 </div>
@@ -102,37 +113,35 @@ let CURRENT_YEAR = CFG.year;
 let ALL_FOLDERS = [];
 let SELECTED_FOLDERS = [];
 
-/* ============ ĐA NGÔN NGỮ & ĐỊNH NGHĨA RỦI RO ============ */
+/* ============ ĐA NGÔN NGỮ ============ */
 const T = {
- vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày biến động:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',sum:'Form sum',det:'Form detail',logic:'Logic',
+ vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',
+  sum:'Form sum',det:'Form detail', mt:'Follow MT', inv:'Current Inventory', logic:'Logic',
   out:'Đăng xuất',loc:'Kho',sku:'SKU',prodT:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
-  mon:'Tháng',cond:'Điều kiện logic',risk:'Chi Tiết Rủi Ro Thực Tế',act:'Hành Động',note:'Bộ lọc, tính FIFO lũy kế. Nếu chọn ngày chốt sổ cuối tháng, Sell Out tháng đó = 0. Lô có tồn = 0 bị ẩn.',
-  wait:'Xin chờ trong giây lát...',reqErr:'Vui lòng chọn ít nhất 1 ngày!',dupErr:'Không được chọn nhiều ngày trong cùng 1 tháng!',loaded:'Đã tải dữ liệu thành công!',
-  loadingFolders:'Đang lấy danh sách ngày...',demo:'Đang dùng dữ liệu mẫu',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
-  nSum:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Bằng 0 nếu ngày chọn là ngày cuối tháng, ngược lại lấy Selling Plan<br>- Stock coverday: (số tồn / total sell out) * số ngày của tháng',
-  nDet:'- Warehouse: South & North.<br>- In transit: được cập nhật dựa trên ETA nhập kho<br>- Sell out: Bằng 0 nếu ngày chọn là ngày cuối tháng, ngược lại lấy Selling Plan'},
- en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',sum:'Form sum',det:'Form detail',logic:'Logic',
+  mon:'Tháng',cond:'Điều kiện logic',risk:'Chi Tiết Rủi Ro',act:'Hành Động',note:'Ghi chú',wait:'Xin chờ trong giây lát...',reqErr:'Vui lòng chọn ít nhất 1 ngày!',dupErr:'Không được chọn nhiều ngày trong cùng 1 tháng!',loaded:'Đã tải dữ liệu thành công!',
+  loadingFolders:'Đang lấy danh sách ngày...',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
+  nSum:'- Bằng 0 nếu ngày chọn là ngày cuối tháng, ngược lại lấy Selling Plan', nDet:''},
+ en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',
+  sum:'Form sum',det:'Form detail', mt:'Follow MT', inv:'Current Inventory', logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
   st:'Status',lot:'Lot status',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
-  mon:'Month',cond:'Logic Condition',risk:'Actual Risk Details',act:'Action',note:'FIFO calculation. End of month sets Sell Out to 0. Empty lots are hidden.',
-  wait:'Please wait a moment...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in the same month!',loaded:'Data loaded successfully!',
-  loadingFolders:'Fetching dates...',demo:'Using sample data',lerr:'Login failed: ',est:'Estimated EXP',
-  nSum:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: 0 if end of month, else Selling Plan<br>- Stock coverday: (inventory / total sell out) * days in month',
-  nDet:'- Warehouse: South & North.<br>- In transit: updated based on ETA<br>- Sell out: 0 if end of month, else Selling Plan'}
+  mon:'Month',cond:'Logic Condition',risk:'Risk Details',act:'Action',note:'Note',wait:'Please wait...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in same month!',loaded:'Data loaded successfully!',
+  loadingFolders:'Fetching dates...',lerr:'Login failed: ',est:'Estimated EXP',
+  nSum:'- 0 if end of month, else Selling Plan', nDet:''}
 };
 
 const ST = {
- SAFE:['An toàn','Safe','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.', 'None', 'Maintain sales plan and issue goods according to FIFO standard.'],
- WATCH:['Theo dõi (HSD 50–65%)','Watch (50–65%)','wt', 'Rủi ro dẫn đến bước Cận date (<50% HSD)', 'Yêu cầu tăng cường kế hoạch bán hàng', 'Risk of leading to Near Expiry (<50% Shelf-life)', 'Request to increase sales plan'],
- NEAR:['Cận date (<50%)','Near expiry (<50%)','nr', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM clear tồn sớm', 'Risk of disposal or need promotion to clear stock', 'Need to plan promotion to clear stock early'],
- DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp', 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', 'Cần tính CTKM lớn xả tồn', 'Risk of disposal or need promotion to clear stock', 'Need big promotion to clear stock'],
- EXPIRED:['Hết hạn SD','Expired','ex', 'Lô hàng đã chính thức hết HSD, không được phép lưu thông trên thị trường.', 'Cách ly Lô hàng chờ hủy', 'Batch has officially expired, not allowed for market circulation.', 'Isolate batch for disposal'],
- SHORT:['Thiếu hàng','Out of stock','ex', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Lên PO đặt hàng\nCân chỉnh hàng hóa giữa các kênh và khách hàng', 'Actual shortage.\nCustomers/Supermarkets will lock code', 'Issue PO to order\nBalance goods between channels and customers'],
- SHORT_MT:['Thiếu hàng kênh MT','MT channel shortage','dp', 'Thiếu hàng thực tế.\nKhách hàng/Siêu thị sẽ lock code', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết', 'Actual shortage.\nCustomers/Supermarkets will lock code', 'Accelerate delivery schedule\nIssue PO if out of stock'],
- BELOW:['Dưới an toàn','Below safety','nr', 'Rất dễ thiếu hàng nếu Demand vọt lên hoặc PO về trễ.', 'Đẩy nhanh tiến độ giao hàng\nLên PO đặt hàng nếu đã hết\nCân chỉnh hàng hóa giữa các kênh', 'High risk of shortage if Demand spikes or PO delays.', 'Accelerate delivery schedule\nIssue PO if out of stock\nBalance goods between channels'],
- OVER:['Vượt nhu cầu','Over demand','wt', 'Rủi ro tồn đọng hàng dẫn đến trạng thái Theo dõi (HSD 50–65%)', 'Yêu cầu tăng cường kế hoạch bán hàng và cân chỉnh lại PO đặt hàng cho lần kế tiếp', 'Risk of stagnation leading to Watch status (50-65% Shelf-life)', 'Request to increase sales plan and readjust PO for next order'],
- EMPTY:['Đã xuất hết','Out of batch','ok', 'Không', 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.', 'None', 'Maintain sales plan and issue goods according to FIFO standard.']
+ SAFE:['An toàn','Safe','ok', 'Không', 'Duy trì kế hoạch bán hàng', 'None', 'Maintain sales plan'],
+ WATCH:['Theo dõi (50–65%)','Watch (50–65%)','wt', 'Rủi ro Cận date', 'Tăng cường kế hoạch', 'Risk of Near Expiry', 'Increase sales plan'],
+ NEAR:['Cận date (<50%)','Near (<50%)','nr', 'Rủi ro hủy hàng', 'Chạy CTKM', 'Risk of disposal', 'Run promotion'],
+ DISPOSE:['Hủy hàng (<30%)','Dispose (<30%)','dp', 'Rủi ro hủy hàng', 'CTKM xả tồn', 'Risk of disposal', 'Big promotion'],
+ EXPIRED:['Hết hạn SD','Expired','ex', 'Hàng hết HSD', 'Cách ly chờ hủy', 'Expired batch', 'Isolate for disposal'],
+ SHORT:['Thiếu hàng','Out of stock','ex', 'Thiếu hàng thực tế', 'Lên PO', 'Actual shortage', 'Issue PO'],
+ SHORT_MT:['Thiếu kênh MT','MT shortage','dp', 'Thiếu hàng thực tế', 'Đẩy giao hàng', 'Actual shortage', 'Accelerate delivery'],
+ BELOW:['Dưới an toàn','Below safety','nr', 'Rất dễ thiếu hàng', 'Đẩy giao hàng', 'High risk of shortage', 'Accelerate delivery'],
+ OVER:['Vượt nhu cầu','Over demand','wt', 'Rủi ro tồn đọng', 'Tăng kế hoạch', 'Risk of stagnation', 'Increase sales plan'],
+ EMPTY:['Đã xuất hết','Out of batch','ok', 'Không', 'Duy trì', 'None', 'Maintain']
 };
 
 const RULES = [
@@ -140,12 +149,7 @@ const RULES = [
  ['SAFE','Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', 'Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%'],
  ['NEAR','30% <= %_Remaining_Shelf_Life < 50%', '30% <= %_Remaining_Shelf_Life < 50%'],
  ['DISPOSE','10% <= %_Remaining_Shelf_Life < 30%', '10% <= %_Remaining_Shelf_Life < 30%'],
- ['EXPIRED','%_Remaining_Shelf_Life <= 0% HOẶC Expiry_Date <= Current_Date', '%_Remaining_Shelf_Life <= 0% OR Expiry_Date <= Current_Date'],
- ['SHORT','Total_SKU_Available_Stock < Total_SKU_Demand\n(Tính tổng tất cả các Lô + In-Transit trong tháng)', 'Total_SKU_Available_Stock < Total_SKU_Demand\n(Sum of all batches + In-Transit in month)'],
- ['BELOW','0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\nTồn kho tổng của SKU cuối tháng rơi xuống dưới mức dự phòng an toàn (< 2 tuần bán).', '0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\nTotal SKU ending stock falls below safety buffer (< 2 weeks of sales).'],
- ['SHORT_MT','Total_SKU_Closing_Stock >= Demand NHƯNG MT_Qualified_Stock < MT_Demand\nTổng kho SKU vẫn còn hàng (hoặc còn ở các Lô bị khóa MT HSD<60%)', 'Total_SKU_Closing_Stock >= Demand BUT MT_Qualified_Stock < MT_Demand\nTotal SKU stock is available (or locked in MT Shelf-life < 60%)'],
- ['WATCH','50% <= %_Remaining_Shelf_Life <= 65%', '50% <= %_Remaining_Shelf_Life <= 65%'],
- ['OVER','Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)', 'Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)']
+ ['EXPIRED','%_Remaining_Shelf_Life <= 0%', '%_Remaining_Shelf_Life <= 0%']
 ];
 
 /* ============ TIỆN ÍCH ============ */
@@ -222,7 +226,8 @@ function normalize(raw) {
   const G = new Map();
   const grp = (loc, sku) => {
     const k = loc + '|' + sku;
-    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {} });
+    // BỔ SUNG: planDetails để lưu mảng chi tiết KH & Ngày tháng, qadByCus để bóc tách QAD theo KH
+    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {} });
     return G.get(k);
   };
   const life = s => master.get(s)?.life || 0;
@@ -262,7 +267,19 @@ function normalize(raw) {
     if (skipSku(sku) || !m) return;
     const g = grp(normLoc(r['Warehouse'] ?? pick(r, /warehouse|kho/i)), sku);
     g.plan[m] = (g.plan[m] || 0) + q;
-    if (/^mt$/i.test(String(r['Channel'] ?? pick(r, /channel|kênh/i)).trim())) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
+    
+    // BỔ SUNG: Cập nhật thông tin chi tiết (Channel, Customer, Start/End Date)
+    const chnl = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
+    if (/^mt$/i.test(chnl)) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
+    
+    g.planDetails.push({
+        m: m,
+        channel: chnl,
+        customer: String(r['Customers'] ?? pick(r, /customer|khách/i) ?? '').trim(),
+        start: r['Starting date'] ?? pick(r, /start|bắt/i),
+        end: r['Ending date'] ?? pick(r, /end|kết/i),
+        plan: q
+    });
   });
 
   raw.qad.forEach(r => {
@@ -272,9 +289,19 @@ function normalize(raw) {
     if (skipSku(sku) || !t) return;
     const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim();
     const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;
-    const g = grp(normLoc(r['HQ'] ?? pick(r, /hq|kho/i)), sku), mo = monthOf(t);
+    const mo = monthOf(t);
+    const loc = normLoc(r['HQ'] ?? pick(r, /hq|kho/i));
+    const g = grp(loc, sku);
     g.qad[mo] = (g.qad[mo] || 0) + ctn;
-    if (/^mt$/i.test(String(r['Key Cus'] ?? pick(r, /key.*cus|khách/i) ?? '').trim())) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
+    
+    const keyCus = String(r['Key Cus'] ?? r['Customer Name'] ?? r['Customer'] ?? pick(r, /key.*cus|khách|customer/i) ?? '').trim();
+    const chnlQad = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
+    
+    // BỔ SUNG: Lưu lại QAD chi tiết theo Khách Hàng để đối soát trong form MT
+    g.qadByCus[mo] = g.qadByCus[mo] || {};
+    g.qadByCus[mo][keyCus] = (g.qadByCus[mo][keyCus] || 0) + ctn;
+    
+    if (/^mt$/i.test(keyCus) || /^mt$/i.test(chnlQad)) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
   });
 
   G.forEach(g => { 
@@ -291,21 +318,16 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-// Thêm tham số locFilter
 function compute(M, lineFilter, nameFilterStr, locFilter) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
   const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
-  // THÊM: Tạo regex cho điều kiện Kho
   const locRe = locFilter && locFilter !== 'ALL' ? new RegExp('^' + locFilter + '$', 'i') : null;
 
   DB.forEach(g => {
-    // THÊM: Bỏ qua nếu không khớp Kho
     if (locRe && !locRe.test(String(g.loc || ''))) return;
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
-    
-    // ... (Giữ nguyên toàn bộ code phía dưới của hàm compute)
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
     const latestFolder = [...SELECTED_FOLDERS].sort((a, b) => (a.y - b.y) || (a.m - b.m) || (a.d - b.d)).pop();
@@ -319,19 +341,18 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
       if (eomMonth) {
           so = 0; 
       } else if (latestFolder && m > latestFolder.m) {
-          // BẢN VÁ: Nếu là tháng tương lai (chưa có QAD), lấy full Sales Plan
           so = g.plan[m] || 0;
       } else {
           so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
       }
 
-      let rem = so + deficit; // <-- Chỉ giữ 1 dòng này
+      let rem = so + deficit;
       for (const l of lots) { if (rem <= 0) break; const t = Math.min(l.qty, rem); l.qty -= t; rem -= t; }
       deficit = rem;
       R = { begin, tr: sum(inn), so, ending: sum(lots) - deficit };
     });
     if (!R) return;
-    // BẢN VÁ: Chặn trừ mtQad nếu đang xem báo cáo của tháng tương lai
+
     const isFutureM = latestFolder && M > latestFolder.m;
     const mtDem = isFutureM ? (g.mtPlan[M] || 0) : remain(g.mtPlan, g.mtQad, M);
     
@@ -348,7 +369,6 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
     else if (R.so > 0 && R.ending < R.so / days * 14) sku = 'BELOW';
     else if (limit != null && R.ending > limit) sku = 'OVER';
     
-    // NEW COVERDAY LOGIC
     const isReportingMonthEOM = SELECTED_FOLDERS.some(f => f.m === M && f.isEOM && f.y === CURRENT_YEAR);
     const covDem = isReportingMonthEOM ? (g.qad[M] || 0) : (g.plan[M] || 0);
     const cov = R.ending < 0 ? 0 : (covDem > 0 ? (R.ending / covDem) * days : null);
@@ -359,7 +379,7 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
 }
 
 /* ============ HIỂN THỊ ============ */
-const tt = k => T[lang][k];
+const tt = k => T[lang][k] || k;
 const badge = c => c && ST[c] ? `<span class="b ${ST[c][2]}">${esc(ST[c][lang === 'vi' ? 0 : 1])}</span>` : '—';
 const th = (...k) => `<tr>${k.map(x => `<th>${esc(tt(x))}</th>`).join('')}</tr>`;
 const num = (v, neg) => `<td class="n ${neg && v < 0 ? 'neg' : ''}">${fmt(v)}</td>`;
@@ -375,10 +395,8 @@ function render() {
   if (!DB) return;
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
-  // THÊM: Lấy giá trị kho đang chọn
   const locv = $('#fLoc').value; 
   
-  // THÊM: Đưa biến kho (locv) vào key để bộ đệm nhận biết thay đổi và hàm compute
   const currentFilterKey = `${M}_${lv}_${nv}_${locv}`;
   if (lastFilterKey !== currentFilterKey) {
     cachedRows = compute(M, lv, nv, locv);
@@ -400,9 +418,9 @@ function render() {
     
     const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
     const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="4" style="text-align:right">${subtext}</td>${num(tBegin)}${num(tTr)}${num(tSo)}${num(tEnd, 1)}<td></td><td></td><td></td><td></td></tr>` : '';
-    
     h = body ? `<div class="wrap"><table>${th('loc','sku','prodT','lineC','begin','tr','so','end','cov','st','risk','act')}${body}${subRow}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
-  } else if (tab === 'det') {
+  } 
+  else if (tab === 'det') {
     let body = '', tQty = 0;
     rows.forEach(r => r.lots.forEach(l => {
       if (!passWarn(w, r.sku, [l.st]) && !(w === r.sku)) return;
@@ -415,12 +433,118 @@ function render() {
       const d = x => x ? new Date(x).toISOString().slice(0, 10) : '—';
       body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
     }));
-    
     const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
     const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="5" style="text-align:right">${subtext}</td>${num(tQty)}<td></td><td></td><td></td><td></td><td></td></tr>` : '';
+    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}${subRow}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
+  } 
+  
+  /* =========================================
+     TAB MỚI: FOLLOW MT (CÓ CHI TIẾT TỪ GOOGLE SHEET)
+     ========================================= */
+  else if (tab === 'mt') {
+    let body = '';
+    
+    // Hàm định dạng ngày thành dạng dd/mm/yyyy
+    const fmtD = v => {
+        if (!v) return '—';
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? String(v).split('T')[0] : d.toLocaleDateString('en-GB');
+    };
 
-    h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}${subRow}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nDet')}</div>` : `<div class="empty">${tt('empty')}</div>`;
-  } else {
+    rows.forEach(r => {
+        // Lấy toàn bộ kế hoạch của SKU trong tháng hiện tại (Có thể lấy riêng kênh MT hoặc theo khách)
+        // Ghi chú: Kênh trong Sheet đang điền "TT", nên dùng filter này để bắt cả "MT" và các kế hoạch cụ thể
+        const plansForMonth = (r.g.planDetails || []).filter(p => p.m === M);
+        
+        if (plansForMonth.length > 0) {
+            plansForMonth.forEach(p => {
+                // Lấy Actual QAD cho khách hàng này (đối chiếu tên khách)
+                const actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
+                const rem = Math.max(p.plan - actualCus, 0);
+                
+                body += `<tr>
+                    <td>${esc(r.g.loc)}</td>
+                    <td>${esc(r.g.sku)} - ${esc(r.g.name)}</td>
+                    <td>${esc(p.customer || p.channel)}</td>
+                    <td class="text-center">${fmtD(p.start)}</td>
+                    <td class="text-center">${fmtD(p.end)}</td>
+                    ${num(p.plan)}
+                    ${num(actualCus)}
+                    ${num(rem)}
+                </tr>`;
+            });
+        }
+    });
+
+    h = `<div class="wrap"><table>
+        <tr>
+            <th>Warehouse</th>
+            <th>Product (SKU - Name)</th>
+            <th>Customer Name</th>
+            <th class="text-center">Starting date</th>
+            <th class="text-center">Ending date</th>
+            <th class="n">Sale Plan</th>
+            <th class="n">Actual</th>
+            <th class="n">Remaining</th>
+        </tr>
+        ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
+    </table></div>`;
+  } 
+
+  /* =========================================
+     TAB MỚI: CURRENT INVENTORY
+     ========================================= */
+  else if (tab === 'inv') {
+    let body = '';
+    rows.forEach(r => {
+      if(r.ending > 0) {
+        let b30 = 0, b50 = 0, b60 = 0, b70 = 0, bgt70 = 0;
+        r.lots.forEach(l => {
+            if(l.h == null) return;
+            if(l.h < 30) b30 += l.qty;
+            else if(l.h < 50) b50 += l.qty;
+            else if(l.h < 60) b60 += l.qty;
+            else if(l.h <= 70) b70 += l.qty;
+            else bgt70 += l.qty;
+        });
+
+        if((b30+b50+b60+b70+bgt70) > 0) {
+            body += `<tr>
+                <td>${esc(r.g.loc)}</td>
+                <td>${esc(r.g.sku)}</td>
+                <td>${esc(r.g.name)}</td>
+                <td class="n">${b30 > 0 ? fmt(b30) : ''}</td>
+                <td class="n">${b50 > 0 ? fmt(b50) : ''}</td>
+                <td class="n">${b60 > 0 ? fmt(b60) : ''}</td>
+                <td class="n">${b70 > 0 ? fmt(b70) : ''}</td>
+                <td class="n">${bgt70 > 0 ? fmt(bgt70) : ''}</td>
+            </tr>`;
+        }
+      }
+    });
+
+    h = `<div class="wrap"><table>
+        <tr>
+            <th rowspan="2" style="vertical-align:bottom">Warehouse</th>
+            <th rowspan="2" style="vertical-align:bottom">Product Code</th>
+            <th rowspan="2" style="vertical-align:bottom">Product Name</th>
+            <th class="hsd-30">&lt;30%</th>
+            <th class="hsd-50">30-50%</th>
+            <th class="hsd-60">50-60%</th>
+            <th class="hsd-70">60-70%</th>
+            <th class="hsd-gt70">&gt;70%</th>
+        </tr>
+        <tr>
+            <th class="text-center hsd-30">Tháng ${M}</th>
+            <th class="text-center hsd-50">Tháng ${M}</th>
+            <th class="text-center hsd-60">Tháng ${M}</th>
+            <th class="text-center hsd-70">Tháng ${M}</th>
+            <th class="text-center hsd-gt70">Tháng ${M}</th>
+        </tr>
+        ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
+    </table></div>`;
+  }
+  else {
     h = `<div class="wrap"><table>${th('st','cond','risk','act')}${RULES.map(r => {
       const cond = lang === 'vi' ? r[1] : r[2];
       const risk = ST[r[0]]?.[lang === 'vi' ? 3 : 5] || '';
@@ -435,12 +559,8 @@ function render() {
 function setLang(l) {
   lang = l; 
   $('#lvi').classList.toggle('on', l === 'vi'); 
-  $('#len').classList.toggle('on', l === 'en');      $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));
-  
-  // Hiển thị Tiêu đề và nút Đăng xuất ngay khi đổi ngôn ngữ (sau login)
-  $('#ttl').textContent = tt('ttl'); document.title = tt('ttl');
+  $('#len').classList.toggle('on', l === 'en');      $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));$('#ttl').textContent = tt('ttl'); document.title = tt('ttl');
   $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
-  
   if(DB) { fillFilters(); render(); }
 }
 
@@ -508,10 +628,7 @@ function addFolderSelect() {
   const sel = document.createElement('select');
   sel.className = 'folder-sel';
   sel.innerHTML = '<option value="">-- Chọn ngày --</option>' + ALL_FOLDERS.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
-  $('#folder-container').appendChild(sel); 
-}  
-  async function confirmLoadData() {   
-  const sels = $$('.folder-sel').map(s => s.value).filter(Boolean);
+  $('#folder-container').appendChild(sel); }  async function confirmLoadData() { const sels = $$('.folder-sel').map(s => s.value).filter(Boolean);
   if (!sels.length) return alert(tt('reqErr'));
   
   const selected = sels.map(name => ALL_FOLDERS.find(f => f.name === name));
@@ -548,6 +665,7 @@ function addFolderSelect() {
     $('#dataStatus').textContent = 'Lỗi: ' + e.message;
   }
 }
+
 /* ============ SỰ KIỆN ============ */
 $('#btnLogin').onclick = login;
 $('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
@@ -558,10 +676,8 @@ $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
 $('#fProd').oninput = render;
 ['#fLoc', '#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
-$$('.tabs button').forEach(b => b.onclick = () => { 
-  tab = b.dataset.tab; 
-  // Cập nhật lại viền xanh ngay lập tức khi click
-  $$('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab));
+$$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; $$
+('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab));
   render(); 
 });  
 </script>
