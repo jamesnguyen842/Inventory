@@ -341,7 +341,7 @@ function normalize(raw) {
   return [...G.values()].filter(g => /mix|biteez|parteez|yappy/i.test(String(g.name)));
 }
 
-/* ============ TÍNH TOÁN ============ */
+/* ============ TÍNH TOÁN (FIFO LŨY KẾ & NGẮT QUÃNG) ============ */
 const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(plan[m] - qad[m], 0) : plan[m]) : (qad[m] || 0);
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
@@ -474,6 +474,9 @@ function render() {
   
   else if (tab === 'mt') {
     let body = '';
+    let sumBody = '';
+    let summaryData = {};
+
     const fmtD = v => {
         if (!v) return '—';
         const d = new Date(v);
@@ -489,7 +492,7 @@ function render() {
         
         if (plansForMonth.length > 0) {
             plansForMonth.forEach(p => {
-                // ẨN NHỮNG KHÁCH HÀNG CÓ TÊN LÀ "TT"
+                // Đã ẩn các dòng có Customer Name là "TT"
                 if (String(p.customer).trim().toUpperCase() === 'TT') return;
 
                 let actualCus = 0;
@@ -501,23 +504,64 @@ function render() {
                     actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
                 }
                 
-                const rem = Math.max(p.plan - actualCus, 0);
+                // MỞ KHÓA SỐ ÂM: Không dùng Math.max() nữa để thể hiện số bán vượt KH
+                const rem = p.plan - actualCus;
                 
+                const prodName = `${r.g.sku} - ${r.g.name}`;
+                const cusName = p.customer || p.channel;
+
+                // Ghi nhận vào biến bảng tổng hợp (Summary Table)
+                const sumKey = prodName + '|' + cusName;
+                if (!summaryData[sumKey]) {
+                    summaryData[sumKey] = { plan: 0, actual: 0, rem: 0 };
+                }
+                summaryData[sumKey].plan += p.plan;
+                summaryData[sumKey].actual += actualCus;
+                summaryData[sumKey].rem += rem;
+
+                // Ghi nhận vào biến bảng chi tiết. Truyền tham số 1 vào hàm num() để bôi đỏ khi giá trị bị âm
                 body += `<tr>
                     <td>${esc(r.g.loc)}</td>
-                    <td>${esc(r.g.sku)} - ${esc(r.g.name)}</td>
-                    <td>${esc(p.customer || p.channel)}</td>
+                    <td>${esc(prodName)}</td>
+                    <td>${esc(cusName)}</td>
                     <td class="text-center">${fmtD(p.start)}</td>
                     <td class="text-center">${fmtD(p.end)}</td>
                     ${num(p.plan)}
                     ${num(actualCus)}
-                    ${num(rem)}
+                    ${num(rem, 1)}
                 </tr>`;
             });
         }
     });
 
-    h = `<div class="wrap"><table>
+    // Render HTML Bảng tổng hợp
+    Object.keys(summaryData).sort().forEach(k => {
+        const [prod, cus] = k.split('|');
+        const data = summaryData[k];
+        sumBody += `<tr>
+            <td>${esc(prod)}</td>
+            <td>${esc(cus)}</td>
+            ${num(data.plan)}
+            ${num(data.actual)}
+            ${num(data.rem, 1)}
+        </tr>`;
+    });
+
+    h = `
+    <h3 style="margin-top:0; margin-bottom:12px; font-size:16px; color:var(--ac)">Bảng Tổng Hợp (Summary)</h3>
+    <div class="wrap" style="margin-bottom:24px;"><table>
+        <tr>
+            <th>Product (SKU - Name)</th>
+            <th>Customer Name</th>
+            <th class="n">Total Sale Plan</th>
+            <th class="n">Total Actual</th>
+            <th class="n">Total Remaining</th>
+        </tr>
+        ${sumBody || `<tr><td colspan="5" class="empty">${tt('empty')}</td></tr>`}
+    </table></div>
+
+    <h3 style="margin-top:0; margin-bottom:12px; font-size:16px; color:var(--ac)">Chi Tiết Chương Trình (Details)</h3>
+    <div class="wrap"><table>
         <tr>
             <th>Warehouse</th>
             <th>Product (SKU - Name)</th>
