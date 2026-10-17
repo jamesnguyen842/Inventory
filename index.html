@@ -233,7 +233,8 @@ function normalize(raw) {
   const G = new Map();
   const grp = (loc, sku) => {
     const k = loc + '|' + sku;
-    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {} });
+    // BỔ SUNG: mtTransactions để theo dõi QAD chi tiết theo ngày
+    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {}, mtTransactions: [] });
     return G.get(k);
   };
   const life = s => master.get(s)?.life || 0;
@@ -277,21 +278,24 @@ function normalize(raw) {
     const chnl = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     if (/^mt$/i.test(chnl)) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
     
+    // Parse luôn ngày start/end từ đây
     g.planDetails.push({
         m: m,
         channel: chnl,
         customer: String(r['Customers'] ?? pick(r, /customer|khách/i) ?? '').trim(),
-        start: r['Starting date'] ?? pick(r, /start|bắt/i),
-        end: r['Ending date'] ?? pick(r, /end|kết/i),
+        start: parseExcelDate(r['Starting date'] ?? pick(r, /start|bắt/i)),
+        end: parseExcelDate(r['Ending date'] ?? pick(r, /end|kết/i)),
         plan: q
     });
   });
 
+  // raw.qad hiện tại đã bao gồm QAD từ nhiều tháng (nếu chương trình vắt ngang)
   raw.qad.forEach(r => {
     const sku = cleanSku(r['Item Number'] ?? pick(r, /item.*number|mã/i));
     const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
     const q = +(r['Qty Invoiced'] ?? pick(r, /qty.*invoiced|số lượng/i)) || 0;
     if (skipSku(sku) || !t) return;
+    
     const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim();
     const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;
     const mo = monthOf(t);
@@ -310,6 +314,13 @@ function normalize(raw) {
       
       g.qadByCus[mo] = g.qadByCus[mo] || {};
       g.qadByCus[mo][finalCus] = (g.qadByCus[mo][finalCus] || 0) + ctn;
+      
+      // BỔ SUNG: Lưu lại lịch sử giao dịch theo ngày để đối chiếu cho các chương trình khuyến mãi cố định
+      g.mtTransactions.push({
+          date: t, // Epoch ms của ngày hóa đơn
+          customer: finalCus,
+          qty: ctn
+      });
     }
     
     if (/^mt$/i.test(keyCus) || /^mt$/i.test(chnlQad)) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
@@ -324,7 +335,7 @@ function normalize(raw) {
   return [...G.values()].filter(g => /mix|biteez|parteez|yappy/i.test(String(g.name)));
 }
 
-/* ============ TÍNH TOÁN (FIFO LŨY KẾ) ============ */
+/* ============ TÍNH TOÁN ============ */
 const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(plan[m] - qad[m], 0) : plan[m]) : (qad[m] || 0);
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
@@ -335,14 +346,19 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
   const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
   const locRe = locFilter && locFilter !== 'ALL' ? new RegExp('^' + locFilter + '$', 'i') : null;
 
+  const sortedSelected = [...SELECTED_FOLDERS].sort((a, b) => (a.y - b.y) || (a.m - b.m) || (a.d - b.d));
+  const baseMonth = sortedSelected.length > 0 ? sortedSelected[0].m : CFG.months[0];
+  const calcMonths = CFG.months.filter(m => m >= baseMonth && m <= M);
+
   DB.forEach(g => {
     if (locRe && !locRe.test(String(g.loc || ''))) return;
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
-    const latestFolder = [...SELECTED_FOLDERS].sort((a, b) => (a.y - b.y) || (a.m - b.m) || (a.d - b.d)).pop();
-    CFG.months.filter(m => m <= M).forEach(m => {
+    const latestFolder = sortedSelected.length > 0 ? sortedSelected[sortedSelected.length - 1] : null;
+    
+    calcMonths.forEach(m => {
       const begin = sum(lots) - deficit, inn = g.tr.filter(t => t.m === m);
       inn.forEach(t => lots.push({ ...t }));
       lots.sort((a, b) => (a.exp ?? 9e15) - (b.exp ?? 9e15));                  
@@ -354,7 +370,7 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
       } else if (latestFolder && m > latestFolder.m) {
           so = g.plan[m] || 0;
       } else {
-          so = (m === CFG.months[0] && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
+          so = (m === baseMonth && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
       }
 
       let rem = so + deficit;
@@ -362,6 +378,7 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
       deficit = rem;
       R = { begin, tr: sum(inn), so, ending: sum(lots) - deficit };
     });
+    
     if (!R) return;
 
     const isFutureM = latestFolder && M > latestFolder.m;
@@ -454,7 +471,7 @@ function render() {
     const fmtD = v => {
         if (!v) return '—';
         const d = new Date(v);
-        return isNaN(d.getTime()) ? String(v).split('T')[0] : d.toLocaleDateString('en-GB');
+        return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-GB');
     };
 
     rows.forEach(r => {
@@ -462,7 +479,18 @@ function render() {
         
         if (plansForMonth.length > 0) {
             plansForMonth.forEach(p => {
-                const actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
+                let actualCus = 0;
+                
+                // LỌC CHÍNH XÁC QAD THEO KHOẢNG THỜI GIAN START - END DATE
+                if (p.start && p.end) {
+                    actualCus = (r.g.mtTransactions || [])
+                        .filter(tx => tx.customer === p.customer && tx.date >= p.start && tx.date <= p.end)
+                        .reduce((sum, tx) => sum + tx.qty, 0);
+                } else {
+                    // Fallback nếu Google Sheet bị khuyết ngày
+                    actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
+                }
+                
                 const rem = Math.max(p.plan - actualCus, 0);
                 
                 body += `<tr>
@@ -674,15 +702,60 @@ function addFolderSelect() {
     
     LOGIC_RULES = cache['api_logic'] || [];
 
+    // Tải các file gốc
     const [master, onhand, transit] = await Promise.all(['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k]).catch(()=>[])));
-    const qad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
+    
+    // Tải QAD của tháng hiện tại (tháng mới nhất user chọn)
+    const latestQad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
+    let allQadData = [...latestQad];
+    
+    // Tìm các tháng đã có sẵn trong file QAD này
+    const presentMonths = new Set();
+    latestQad.forEach(r => {
+        const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
+        if (t) {
+            const d = new Date(t);
+            presentMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`);
+        }
+    });
+
+    // Quét Kế hoạch MT để xem có chương trình nào vắt ngang qua tháng khác không
+    const neededMonths = new Set();
+    (cache['api_plan'] || []).forEach(p => {
+        const sd = parseExcelDate(p['Starting date'] ?? pick(p, /start|bắt/i));
+        const ed = parseExcelDate(p['Ending date'] ?? pick(p, /end|kết/i));
+        if (sd) { const d = new Date(sd); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); }
+        if (ed) { const d = new Date(ed); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); }
+    });
+
+    // Nếu Kế hoạch vắt qua tháng mà QAD mới nhất CHƯA có, tự động tải thêm file QAD của tháng đó
+    const extraPromises = [];
+    for (const mKey of neededMonths) {
+        if (!presentMonths.has(mKey)) {
+            const [mStr, yStr] = mKey.split('-');
+            const m = +mStr, y = +yStr;
+            // Ưu tiên tìm folder cuối tháng (isEOM), nếu không thì lấy folder bất kỳ của tháng đó
+            const folder = ALL_FOLDERS.find(f => f.m === m && f.y === y && f.isEOM) || ALL_FOLDERS.find(f => f.m === m && f.y === y);
+            if (folder) {
+                presentMonths.add(mKey); 
+                extraPromises.push(readXlsx(folder.name, CFG.files.qad).catch(()=>[]));
+            }
+        }
+    }
+    
+    // Gộp tất cả QAD tìm được lại để xử lý
+    if (extraPromises.length > 0) {
+        const extraQads = await Promise.all(extraPromises);
+        extraQads.forEach(eq => allQadData = allQadData.concat(eq));
+    }
     
     const years = [...new Set(selected.map(f => f.y))].sort((a,b)=>b-a);
     $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
     CURRENT_YEAR = years[0] || CFG.year;
     
+    // Pass mảng allQadData đã được gộp đẩy vào normalize
     DB = normalize({ 
-        master, onhand, transit, qad, 
+        master, onhand, transit, qad: allQadData, 
         plan: cache['api_plan'] || [], 
         unit: cache['api_unit'] || [], 
         sku: cache['api_sku'] || [],
