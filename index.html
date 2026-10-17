@@ -28,7 +28,9 @@ header h1{font-size:22px;margin:0;flex:1}
 .tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 16px}
 .tabs button.on{border-bottom-color:var(--ac);background:none;color:var(--ac);font-weight:600}
 main{padding:16px 24px}
-.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+
+.wrap{overflow-x:auto;overflow-y:auto;max-height:70vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+
 table{border-collapse:collapse;width:100%;white-space:nowrap}
 th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
 th{background:var(--ac2);position:sticky;top:0;z-index:2}
@@ -104,7 +106,7 @@ const CFG = {
   key: 'sb_publishable_qDGjgGQ06a5w8_DM903-UQ_cMEuI-lw',
   bucket: 'inventory',
   files: { master:'master.xlsx', onhand:'onhand.xlsx', qad:'qad.xlsx', transit:'transit.xlsx' },
-  planUrl: 'https://script.google.com/macros/s/AKfycbxO9zT33UapiEpEoCgRGQXr6uexQ-WIToK74iS_pXVMob_zA7Fw81l8AtpX1tZvRrOZuw/exec',
+  planUrl: 'https://script.google.com/macros/s/AKfycbyqGQoY8K6mCNxNq_sUjlzN-PdgH-DqnfKG-J15XGHAi2eJcIlQqtT5iszbaE0Sg7pLoQ/exec',
   year: 2026, months: [9,10,11,12],
   baseNoPlanUseQad: false
 };
@@ -112,6 +114,7 @@ const CFG = {
 let CURRENT_YEAR = CFG.year;
 let ALL_FOLDERS = [];
 let SELECTED_FOLDERS = [];
+let LOGIC_RULES = []; 
 
 /* ============ ĐA NGÔN NGỮ ============ */
 const T = {
@@ -125,7 +128,7 @@ const T = {
  en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',
   sum:'Form sum',det:'Form detail', mt:'Follow MT', inv:'Current Inventory', logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
-  st:'Status',lot:'Lot status',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
+  st:'Status',lot:'Status lot',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
   mon:'Month',cond:'Logic Condition',risk:'Risk Details',act:'Action',note:'Note',wait:'Please wait...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in same month!',loaded:'Data loaded successfully!',
   loadingFolders:'Fetching dates...',lerr:'Login failed: ',est:'Estimated EXP',
   nSum:'- 0 if end of month, else Selling Plan', nDet:''}
@@ -143,14 +146,6 @@ const ST = {
  OVER:['Vượt nhu cầu','Over demand','wt', 'Rủi ro tồn đọng', 'Tăng kế hoạch', 'Risk of stagnation', 'Increase sales plan'],
  EMPTY:['Đã xuất hết','Out of batch','ok', 'Không', 'Duy trì', 'None', 'Maintain']
 };
-
-const RULES = [
- ['EMPTY','Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0', 'Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0'],
- ['SAFE','Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', 'Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%'],
- ['NEAR','30% <= %_Remaining_Shelf_Life < 50%', '30% <= %_Remaining_Shelf_Life < 50%'],
- ['DISPOSE','10% <= %_Remaining_Shelf_Life < 30%', '10% <= %_Remaining_Shelf_Life < 30%'],
- ['EXPIRED','%_Remaining_Shelf_Life <= 0%', '%_Remaining_Shelf_Life <= 0%']
-];
 
 /* ============ TIỆN ÍCH ============ */
 const $= s => document.querySelector(s),$$ = s => [...document.querySelectorAll(s)];
@@ -223,10 +218,21 @@ function normalize(raw) {
   (raw.unit || []).forEach(r => { unitMap[String(pick(r, /^(unit|đơn vị|mã)/i) ?? Object.values(r)[0]).trim()] = String(pick(r, /ea qty type/i) ?? ''); });
   const eaLevel = u => { const t = unitMap[u] || ''; return /3|cn|can/i.test(t) ? 3 : /2|pack/i.test(t) ? 2 : 1; };
 
+  const custypeMap = {};
+  (raw.custype || []).forEach(r => {
+    const keys = Object.keys(r);
+    if (keys.length >= 2) {
+      const qadType = String(r[keys[0]]).trim().toUpperCase();
+      const planCustomer = String(r[keys[1]]).trim();
+      if (qadType) {
+        custypeMap[qadType] = planCustomer;
+      }
+    }
+  });
+
   const G = new Map();
   const grp = (loc, sku) => {
     const k = loc + '|' + sku;
-    // BỔ SUNG: planDetails để lưu mảng chi tiết KH & Ngày tháng, qadByCus để bóc tách QAD theo KH
     if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {} });
     return G.get(k);
   };
@@ -268,7 +274,6 @@ function normalize(raw) {
     const g = grp(normLoc(r['Warehouse'] ?? pick(r, /warehouse|kho/i)), sku);
     g.plan[m] = (g.plan[m] || 0) + q;
     
-    // BỔ SUNG: Cập nhật thông tin chi tiết (Channel, Customer, Start/End Date)
     const chnl = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     if (/^mt$/i.test(chnl)) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
     
@@ -292,14 +297,20 @@ function normalize(raw) {
     const mo = monthOf(t);
     const loc = normLoc(r['HQ'] ?? pick(r, /hq|kho/i));
     const g = grp(loc, sku);
+    
     g.qad[mo] = (g.qad[mo] || 0) + ctn;
     
     const keyCus = String(r['Key Cus'] ?? r['Customer Name'] ?? r['Customer'] ?? pick(r, /key.*cus|khách|customer/i) ?? '').trim();
     const chnlQad = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
+    const cusType = String(r['Customer Type'] ?? pick(r, /customer.*type|loại/i) ?? '').trim();
     
-    // BỔ SUNG: Lưu lại QAD chi tiết theo Khách Hàng để đối soát trong form MT
-    g.qadByCus[mo] = g.qadByCus[mo] || {};
-    g.qadByCus[mo][keyCus] = (g.qadByCus[mo][keyCus] || 0) + ctn;
+    if (keyCus.toUpperCase() !== 'TT') {
+      const mappedPlanCustomer = custypeMap[cusType.toUpperCase()];
+      const finalCus = mappedPlanCustomer || keyCus; 
+      
+      g.qadByCus[mo] = g.qadByCus[mo] || {};
+      g.qadByCus[mo][finalCus] = (g.qadByCus[mo][finalCus] || 0) + ctn;
+    }
     
     if (/^mt$/i.test(keyCus) || /^mt$/i.test(chnlQad)) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
   });
@@ -438,13 +449,8 @@ function render() {
     h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}${subRow}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
   } 
   
-  /* =========================================
-     TAB MỚI: FOLLOW MT (CÓ CHI TIẾT TỪ GOOGLE SHEET)
-     ========================================= */
   else if (tab === 'mt') {
     let body = '';
-    
-    // Hàm định dạng ngày thành dạng dd/mm/yyyy
     const fmtD = v => {
         if (!v) return '—';
         const d = new Date(v);
@@ -452,13 +458,10 @@ function render() {
     };
 
     rows.forEach(r => {
-        // Lấy toàn bộ kế hoạch của SKU trong tháng hiện tại (Có thể lấy riêng kênh MT hoặc theo khách)
-        // Ghi chú: Kênh trong Sheet đang điền "TT", nên dùng filter này để bắt cả "MT" và các kế hoạch cụ thể
         const plansForMonth = (r.g.planDetails || []).filter(p => p.m === M);
         
         if (plansForMonth.length > 0) {
             plansForMonth.forEach(p => {
-                // Lấy Actual QAD cho khách hàng này (đối chiếu tên khách)
                 const actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
                 const rem = Math.max(p.plan - actualCus, 0);
                 
@@ -491,9 +494,6 @@ function render() {
     </table></div>`;
   } 
 
-  /* =========================================
-     TAB MỚI: CURRENT INVENTORY
-     ========================================= */
   else if (tab === 'inv') {
     let body = '';
     rows.forEach(r => {
@@ -544,14 +544,32 @@ function render() {
         ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
     </table></div>`;
   }
+  
   else {
-    h = `<div class="wrap"><table>${th('st','cond','risk','act')}${RULES.map(r => {
-      const cond = lang === 'vi' ? r[1] : r[2];
-      const risk = ST[r[0]]?.[lang === 'vi' ? 3 : 5] || '';
-      const act = ST[r[0]]?.[lang === 'vi' ? 4 : 6] || '';
-      return `<tr><td>${badge(r[0])}</td><td style="white-space:normal;min-width:280px">${esc(cond).replace(/\n/g,'<br>')}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
-    }).join('')}</table></div>`;
+    let noteHTML = `
+      <div class="note" style="margin-top:16px; padding:16px; background:var(--card); border:1px solid var(--line); border-radius:8px; line-height:1.6; color:var(--fg)">
+        <strong style="display:block; margin-bottom:8px;">Về trường hợp Tồn kho thực tế (on hand) lệch so với Tồn cuối kỳ trước:</strong>
+        <ul style="margin:0; padding-left:20px;">
+          <li style="margin-bottom:6px;"><strong>Trong thực tế vận hành:</strong> Sự chênh lệch này thường do các nguyên nhân như hao hụt, hàng hỏng/vỡ, xuất/nhập nhầm, hoặc độ trễ trong việc ghi nhận lên hệ thống ERP (QAD). Đội ngũ kho và chuỗi cung ứng cần kiểm kê lại (Cycle Count hoặc Physical Count) để tìm nguyên nhân và thực hiện bút toán điều chỉnh (Inventory Adjustment) trên QAD.</li>
+          <li><strong>Trong công cụ báo cáo này:</strong> File on hand được xem là nguồn sự thật tuyệt đối (Source of Truth) tại thời điểm báo cáo. Hệ thống sẽ luôn lấy số liệu Tồn kho thực tế trong on hand làm Tồn Đầu Kỳ (Opening Stock) của kỳ tính toán hiện tại, bất kể kỳ trước hệ thống tính toán ra lý thuyết là bao nhiêu. Điều này đảm bảo kế hoạch bán hàng và cảnh báo HSD luôn được tính trên số hàng thực sự đang nằm trong kho.</li>
+        </ul>
+      </div>`;
+
+    if (LOGIC_RULES && LOGIC_RULES.length > 0) {
+        const keys = Object.keys(LOGIC_RULES[0]);
+        h = `<div class="wrap"><table>
+            <tr>${keys.map(k => `<th>${esc(k)}</th>`).join('')}</tr>
+            ${LOGIC_RULES.map(r => `<tr>${keys.map((k, i) => {
+                let val = r[k];
+                if (i === 0 && ST[val]) return `<td>${badge(val)}</td>`;
+                return `<td style="white-space:normal;min-width:180px">${esc(val).replace(/\n/g,'<br>')}</td>`;
+            }).join('')}</tr>`).join('')}
+        </table></div>` + noteHTML;
+    } else {
+        h = `<div class="empty">${tt('empty')} (Chưa có dữ liệu từ bảng Logic)</div>` + noteHTML;
+    }
   }
+  
   $('#view').innerHTML = h;
 }
 
@@ -559,8 +577,8 @@ function render() {
 function setLang(l) {
   lang = l; 
   $('#lvi').classList.toggle('on', l === 'vi'); 
-  $('#len').classList.toggle('on', l === 'en');      $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));$('#ttl').textContent = tt('ttl'); document.title = tt('ttl');
-  $('#btnOut').textContent = tt('out');   $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
+  $('#len').classList.toggle('on', l === 'en'); $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));$('#ttl').textContent = tt('ttl'); document.title = tt('ttl');
+  $('#btnOut').textContent = tt('out'); $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
   if(DB) { fillFilters(); render(); }
 }
 
@@ -647,8 +665,14 @@ function addFolderSelect() {
     const res = await fetch(CFG.planUrl, { redirect: 'follow' });
     if (res.ok) {
       const j = await res.json();
-      cache['api_plan'] = j['Sales plan'] || []; cache['api_unit'] = j['unit'] || []; cache['api_sku'] = j['sku'] || [];
+      cache['api_plan'] = j['Sales plan'] || []; 
+      cache['api_unit'] = j['unit'] || []; 
+      cache['api_sku'] = j['sku'] || [];
+      cache['api_custype'] = j['custype'] || []; 
+      cache['api_logic'] = j['Logic'] || []; 
     }
+    
+    LOGIC_RULES = cache['api_logic'] || [];
 
     const [master, onhand, transit] = await Promise.all(['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k]).catch(()=>[])));
     const qad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
@@ -657,7 +681,14 @@ function addFolderSelect() {
     $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
     CURRENT_YEAR = years[0] || CFG.year;
     
-    DB = normalize({ master, onhand, transit, qad, plan: cache['api_plan'] || [], unit: cache['api_unit'] || [], sku: cache['api_sku'] || [] });
+    DB = normalize({ 
+        master, onhand, transit, qad, 
+        plan: cache['api_plan'] || [], 
+        unit: cache['api_unit'] || [], 
+        sku: cache['api_sku'] || [],
+        custype: cache['api_custype'] || []
+    });
+    
     $('#dataStatus').textContent = tt('loaded');
     
     fillFilters(); render();
