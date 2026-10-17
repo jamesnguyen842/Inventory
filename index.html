@@ -163,13 +163,23 @@ const pick = (r, re) => {
 const day = ms => Math.floor(ms / 864e5) * 864e5;
 const addMonths = (ms, n) => { const d = new Date(ms); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate()); };
 
+/* XỬ LÝ LÀM SẠCH NGÀY THÁNG ĐỒNG BỘ */
 function parseExcelDate(v) {
   if (v == null || v === '') return null;
   if (v instanceof Date) return isNaN(v) ? null : Date.UTC(v.getFullYear(), v.getMonth(), v.getDate());
   if (typeof v === 'number') return v > 1e10 ? day(v) : day(Math.round((v - 25569) * 864e5));
+  
   const s = String(v).trim();
-  let m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
-  if (m) return Date.UTC(+m[3] < 100 ? 2000 + +m[3] : +m[3], +m[1] - 1, +m[2]);
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
+  if (m) {
+    let y = +m[3] < 100 ? 2000 + +m[3] : +m[3];
+    if (+m[1] > 12) return Date.UTC(y, +m[2] - 1, +m[1]);
+    return Date.UTC(y, +m[1] - 1, +m[2]);
+  }
+  
   m = s.match(/^(\d{1,2})[\/\-.\s]([a-zA-Z]{3})(?:[\/\-.\s](\d{2,4}))?$/);
   if (m) {
     const monthStr = m[2].toLowerCase(), monthIdx = MN.findIndex(mn => monthStr.startsWith(mn));
@@ -233,7 +243,6 @@ function normalize(raw) {
   const G = new Map();
   const grp = (loc, sku) => {
     const k = loc + '|' + sku;
-    // BỔ SUNG: mtTransactions để theo dõi QAD chi tiết theo ngày
     if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {}, mtTransactions: [] });
     return G.get(k);
   };
@@ -278,7 +287,6 @@ function normalize(raw) {
     const chnl = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     if (/^mt$/i.test(chnl)) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
     
-    // Parse luôn ngày start/end từ đây
     g.planDetails.push({
         m: m,
         channel: chnl,
@@ -289,7 +297,6 @@ function normalize(raw) {
     });
   });
 
-  // raw.qad hiện tại đã bao gồm QAD từ nhiều tháng (nếu chương trình vắt ngang)
   raw.qad.forEach(r => {
     const sku = cleanSku(r['Item Number'] ?? pick(r, /item.*number|mã/i));
     const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
@@ -315,9 +322,8 @@ function normalize(raw) {
       g.qadByCus[mo] = g.qadByCus[mo] || {};
       g.qadByCus[mo][finalCus] = (g.qadByCus[mo][finalCus] || 0) + ctn;
       
-      // BỔ SUNG: Lưu lại lịch sử giao dịch theo ngày để đối chiếu cho các chương trình khuyến mãi cố định
       g.mtTransactions.push({
-          date: t, // Epoch ms của ngày hóa đơn
+          date: t, 
           customer: finalCus,
           qty: ctn
       });
@@ -471,7 +477,11 @@ function render() {
     const fmtD = v => {
         if (!v) return '—';
         const d = new Date(v);
-        return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-GB');
+        if (isNaN(d.getTime())) return String(v).split('T')[0];
+        const dd = String(d.getUTCDate()).padStart(2, '0');
+        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const yyyy = d.getUTCFullYear();
+        return `${dd}/${mm}/${yyyy}`;
     };
 
     rows.forEach(r => {
@@ -479,15 +489,15 @@ function render() {
         
         if (plansForMonth.length > 0) {
             plansForMonth.forEach(p => {
+                // ẨN NHỮNG KHÁCH HÀNG CÓ TÊN LÀ "TT"
+                if (String(p.customer).trim().toUpperCase() === 'TT') return;
+
                 let actualCus = 0;
-                
-                // LỌC CHÍNH XÁC QAD THEO KHOẢNG THỜI GIAN START - END DATE
                 if (p.start && p.end) {
                     actualCus = (r.g.mtTransactions || [])
                         .filter(tx => tx.customer === p.customer && tx.date >= p.start && tx.date <= p.end)
                         .reduce((sum, tx) => sum + tx.qty, 0);
                 } else {
-                    // Fallback nếu Google Sheet bị khuyết ngày
                     actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
                 }
                 
@@ -702,14 +712,11 @@ function addFolderSelect() {
     
     LOGIC_RULES = cache['api_logic'] || [];
 
-    // Tải các file gốc
     const [master, onhand, transit] = await Promise.all(['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k]).catch(()=>[])));
     
-    // Tải QAD của tháng hiện tại (tháng mới nhất user chọn)
     const latestQad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
     let allQadData = [...latestQad];
     
-    // Tìm các tháng đã có sẵn trong file QAD này
     const presentMonths = new Set();
     latestQad.forEach(r => {
         const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
@@ -719,7 +726,6 @@ function addFolderSelect() {
         }
     });
 
-    // Quét Kế hoạch MT để xem có chương trình nào vắt ngang qua tháng khác không
     const neededMonths = new Set();
     (cache['api_plan'] || []).forEach(p => {
         const sd = parseExcelDate(p['Starting date'] ?? pick(p, /start|bắt/i));
@@ -728,13 +734,11 @@ function addFolderSelect() {
         if (ed) { const d = new Date(ed); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); }
     });
 
-    // Nếu Kế hoạch vắt qua tháng mà QAD mới nhất CHƯA có, tự động tải thêm file QAD của tháng đó
     const extraPromises = [];
     for (const mKey of neededMonths) {
         if (!presentMonths.has(mKey)) {
             const [mStr, yStr] = mKey.split('-');
             const m = +mStr, y = +yStr;
-            // Ưu tiên tìm folder cuối tháng (isEOM), nếu không thì lấy folder bất kỳ của tháng đó
             const folder = ALL_FOLDERS.find(f => f.m === m && f.y === y && f.isEOM) || ALL_FOLDERS.find(f => f.m === m && f.y === y);
             if (folder) {
                 presentMonths.add(mKey); 
@@ -743,7 +747,6 @@ function addFolderSelect() {
         }
     }
     
-    // Gộp tất cả QAD tìm được lại để xử lý
     if (extraPromises.length > 0) {
         const extraQads = await Promise.all(extraPromises);
         extraQads.forEach(eq => allQadData = allQadData.concat(eq));
@@ -753,7 +756,6 @@ function addFolderSelect() {
     $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
     CURRENT_YEAR = years[0] || CFG.year;
     
-    // Pass mảng allQadData đã được gộp đẩy vào normalize
     DB = normalize({ 
         master, onhand, transit, qad: allQadData, 
         plan: cache['api_plan'] || [], 
