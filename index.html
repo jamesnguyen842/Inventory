@@ -99,6 +99,8 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <button data-tab="mt"></button>
     <button data-tab="tt"></button>
     <button data-tab="logic"></button>
+    <!-- Thêm dòng Đơn vị tính: Thùng ngang hàng tabs -->
+    <span style="margin-left: auto; align-self: center; color: var(--mut); font-style: italic;" data-t="unitTxt"></span>
   </div>
   <main><div id="view"></div></main>
 </div>
@@ -130,14 +132,16 @@ const T = {
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
   mon:'Tháng',cond:'Điều kiện logic',risk:'Chi Tiết Rủi Ro',act:'Hành Động',note:'Ghi chú',wait:'Xin chờ trong giây lát...',reqErr:'Vui lòng chọn ít nhất 1 ngày!',dupErr:'Không được chọn nhiều ngày trong cùng 1 tháng!',loaded:'Đã tải dữ liệu thành công!',
   loadingFolders:'Đang lấy danh sách ngày...',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
-  nSum:'- Sell out (Số thùng còn lại phải bán) = Sales plan (Kế hoạch bán hàng) - QAD (số lượng thực tế đã bán trong giai đoạn yêu cầu)', nDet:''},
+  nSum:'- Sell out (Số thùng còn lại phải bán) = Sales plan (Kế hoạch bán hàng) - QAD (số lượng thực tế đã bán trong giai đoạn yêu cầu)', nDet:'',
+  unitTxt:'Đơn vị tính: Thùng', mtNote:'- Lưu ý: Số lượng tại cột Actual bao gồm số lượng thực tế đã bán và hàng khuyến mãi/ tặng kèm dạng sản phẩm, không bao gồm chiết khấu/ giảm giá dạng %, tiền mặt trực tiếp trên hóa đơn).'},
  en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',
   sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current inventory', logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
   st:'Status',lot:'Status lot',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
   mon:'Month',cond:'Logic Condition',risk:'Risk Details',act:'Action',note:'Note',wait:'Please wait...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in same month!',loaded:'Data loaded successfully!',
   loadingFolders:'Fetching dates...',lerr:'Login failed: ',est:'Estimated EXP',
-  nSum:'- 0 if end of month, else Selling Plan', nDet:''}
+  nSum:'- 0 if end of month, else Selling Plan', nDet:'',
+  unitTxt:'Unit: Carton', mtNote:'- Note: The quantity in the Actual column includes the actual sold quantity and promotional/free items in product form, excluding % discounts or direct cash deductions on invoices).'}
 };
 
 const ST = {
@@ -590,7 +594,7 @@ function render() {
         </tr>
         ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
         ${subRow}
-    </table></div>`;
+    </table></div><div class="note" style="margin-top:14px; font-style:italic;">${tt('mtNote')}</div>`;
   } 
 
   else if (tab === 'inv') {
