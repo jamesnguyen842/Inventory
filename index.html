@@ -166,7 +166,6 @@ const addMonths = (ms, n) => { const d = new Date(ms); return Date.UTC(d.getUTCF
 /* XỬ LÝ LÀM SẠCH NGÀY THÁNG ĐỒNG BỘ */
 function parseExcelDate(v) {
   if (v == null || v === '') return null;
-  // Sửa lỗi ngày lấy theo local timezone -> lấy UTC thuần
   if (v instanceof Date) return isNaN(v) ? null : Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate());
   if (typeof v === 'number') return v > 1e10 ? day(v) : day(Math.round((v - 25569) * 864e5));
   
@@ -200,7 +199,6 @@ function parseDirectShelfLife(v) {
   if (v == null || v === '') return null;
   let num = parseFloat(String(v).replace('%', '').trim());
   if (isNaN(num)) return null;
-  // Xử lý linh hoạt nếu excel đang lưu dạng số thập phân (vd: 0.55 = 55%)
   if (num > 0 && num <= 1.2 && typeof v === 'number') num *= 100;
   return num;
 }
@@ -269,7 +267,7 @@ function normalize(raw) {
     if (!g.fallbackName) g.fallbackName = String(r['Sort Name'] ?? pick(r, /sort.*name|tên/i) ?? '').trim();
     const exp = parseExcelDate(r['Expiry Date'] ?? r['ExpiryDate'] ?? pick(r, /expiry|exp|hsd/i));
     let mnf = parseExcelDate(r['MNF Date'] ?? r['MNFDate'] ?? pick(r, /mnf|mfg|nsx/i));
-    let slDirect = parseDirectShelfLife(r['Shelf-life'] ?? r['Shelf life'] ?? pick(r, /shelf.*life/i)); // Đọc trực tiếp %HSD
+    let slDirect = parseDirectShelfLife(r['Shelf-life'] ?? r['Shelf life'] ?? pick(r, /shelf.*life/i));
 
     if (!mnf && exp && life(sku)) mnf = addMonths(exp, -life(sku));
     g.oh.push({ exp, mnf, qty, est: false, slDirect });
@@ -406,10 +404,15 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
     
     const totalDem = R.so;
     const dl = lots.filter(l => l.qty > 0).map(l => {
-      // Nhét trực tiếp Shelf-life lấy từ file thay vì tính toán
       const h = l.slDirect != null ? l.slDirect : null;
       return { ...l, h, st: lotStatus(h) };
     });
+    
+    const invLots = [...g.oh, ...g.tr.filter(t => t.m <= M)].map(l => {
+      const h = l.slDirect != null ? l.slDirect : null;
+      return { ...l, h };
+    });
+
     const mtQual = dl.filter(l => l.h != null && l.h >= 60).reduce((s, l) => s + l.qty, 0);
     const limit = g.plan[M] > 0 && g.life ? g.plan[M] * 0.3 * g.life : null;
     let sku = '';
@@ -422,7 +425,7 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
     const covDem = isReportingMonthEOM ? (g.qad[M] || 0) : (g.plan[M] || 0);
     const cov = R.ending < 0 ? 0 : (covDem > 0 ? (R.ending / covDem) * days : null);
     
-    out.push({ ...R, g, days, cov, sku, lots: dl, mtQual, mtDem });
+    out.push({ ...R, g, days, cov, sku, lots: dl, invLots, mtQual, mtDem });
   });
   return out.sort((a, b) => (a.g.loc + a.g.sku).localeCompare(b.g.loc + b.g.sku));
 }
@@ -471,6 +474,18 @@ function render() {
   } 
   else if (tab === 'det') {
     let body = '', tQty = 0;
+    
+    // Định dạng ngày MM/DD/YYYY cho Form Detail
+    const d = x => {
+        if (!x) return '—';
+        const date = new Date(x);
+        if (isNaN(date)) return '—';
+        const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(date.getUTCDate()).padStart(2, '0');
+        const yyyy = date.getUTCFullYear();
+        return `${mm}/${dd}/${yyyy}`;
+    };
+
     rows.forEach(r => r.lots.forEach(l => {
       if (!passWarn(w, r.sku, [l.st]) && !(w === r.sku)) return;
       if (w !== 'ALL' && w !== r.sku && l.st !== w && !(w === 'SAFE' && l.st === 'SAFE' && !r.sku)) return;
@@ -479,7 +494,6 @@ function render() {
       const stKey = l.st || 'EMPTY';
       const risk = ST[stKey]?.[lang === 'vi' ? 3 : 5] || '';
       const act = ST[stKey]?.[lang === 'vi' ? 4 : 6] || '';
-      const d = x => x ? new Date(x).toISOString().slice(0, 10) : '—';
       body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
     }));
     const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
@@ -491,14 +505,15 @@ function render() {
     let body = '';
     let tPlan = 0, tActual = 0, tRem = 0;
     
+    // Định dạng ngày MM/DD/YYYY cho Follow MT
     const fmtD = v => {
         if (!v) return '—';
         const d = new Date(v);
         if (isNaN(d.getTime())) return String(v).split('T')[0];
-        const dd = String(d.getUTCDate()).padStart(2, '0');
         const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(d.getUTCDate()).padStart(2, '0');
         const yyyy = d.getUTCFullYear();
-        return `${dd}/${mm}/${yyyy}`;
+        return `${mm}/${dd}/${yyyy}`;
     };
 
     rows.forEach(r => {
@@ -568,10 +583,10 @@ function render() {
     let t30 = 0, t50 = 0, t60 = 0, t70 = 0, tgt70 = 0;
     
     rows.forEach(r => {
-      if(r.ending > 0) {
         let b30 = 0, b50 = 0, b60 = 0, b70 = 0, bgt70 = 0;
-        r.lots.forEach(l => {
-            if(l.h == null) return;
+        
+        r.invLots.forEach(l => {
+            if(l.h == null || l.qty <= 0) return;
             if(l.h < 30) b30 += l.qty;
             else if(l.h < 50) b50 += l.qty;
             else if(l.h < 60) b60 += l.qty;
@@ -597,7 +612,6 @@ function render() {
                 <td class="n">${bgt70 > 0 ? fmt(bgt70) : ''}</td>
             </tr>`;
         }
-      }
     });
 
     const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
