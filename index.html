@@ -50,7 +50,12 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
 .hsd-60 { background-color: #FFFF00; text-align: center; font-weight: bold; }
 .hsd-70 { background-color: #A9D08E; text-align: center; font-weight: bold; }
 .hsd-gt70 { background-color: #548235; color: white; text-align: center; font-weight: bold; }
+.hsd-total { background-color: #3f4e48; color: white; text-align: center; font-weight: bold; }
 .text-center { text-align: center !important; }
+
+/* Accordion Toggle */
+.acc-btn { padding: 0 6px; margin-right: 6px; border-radius: 4px; background: none; border: 1px solid var(--mut); color: var(--mut); font-family: monospace; font-weight: bold; }
+.acc-btn:hover { border-color: var(--ac); color: var(--ac); }
 </style>
 </head>
 <body>
@@ -88,10 +93,11 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
   </div>
   
   <div class="tabs">
-    <button data-tab="sum" class="on"></button>
+    <button data-tab="inv" class="on"></button>
+    <button data-tab="sum"></button>
     <button data-tab="det"></button>
     <button data-tab="mt"></button>
-    <button data-tab="inv"></button>
+    <button data-tab="tt"></button>
     <button data-tab="logic"></button>
   </div>
   <main><div id="view"></div></main>
@@ -119,14 +125,14 @@ let LOGIC_RULES = [];
 /* ============ ĐA NGÔN NGỮ ============ */
 const T = {
  vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',
-  sum:'Form sum',det:'Form detail', mt:'Follow MT', inv:'Current Inventory', logic:'Logic',
+  sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current Inventory', logic:'Logic',
   out:'Đăng xuất',loc:'Kho',sku:'SKU',prodT:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
   mon:'Tháng',cond:'Điều kiện logic',risk:'Chi Tiết Rủi Ro',act:'Hành Động',note:'Ghi chú',wait:'Xin chờ trong giây lát...',reqErr:'Vui lòng chọn ít nhất 1 ngày!',dupErr:'Không được chọn nhiều ngày trong cùng 1 tháng!',loaded:'Đã tải dữ liệu thành công!',
   loadingFolders:'Đang lấy danh sách ngày...',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
   nSum:'- Bằng 0 nếu ngày chọn là ngày cuối tháng, ngược lại lấy Selling Plan', nDet:''},
  en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',
-  sum:'Form sum',det:'Form detail', mt:'Follow MT', inv:'Current Inventory', logic:'Logic',
+  sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current Inventory', logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
   st:'Status',lot:'Status lot',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
   mon:'Month',cond:'Logic Condition',risk:'Risk Details',act:'Action',note:'Note',wait:'Please wait...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in same month!',loaded:'Data loaded successfully!',
@@ -152,7 +158,7 @@ const $= s => document.querySelector(s),$$ = s => [...document.querySelectorAll(
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmt = n => n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('en-US');
 const MN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-let lang = 'vi', sb = null, DB = null, tab = 'sum';
+let lang = 'vi', sb = null, DB = null, tab = 'inv'; // Set Tab mặc định là Inventory
 
 const pick = (r, re) => { 
   if (!r) return undefined;
@@ -163,7 +169,6 @@ const pick = (r, re) => {
 const day = ms => Math.floor(ms / 864e5) * 864e5;
 const addMonths = (ms, n) => { const d = new Date(ms); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + n, d.getUTCDate()); };
 
-/* XỬ LÝ LÀM SẠCH NGÀY THÁNG ĐỒNG BỘ */
 function parseExcelDate(v) {
   if (v == null || v === '') return null;
   if (v instanceof Date) return isNaN(v) ? null : Date.UTC(v.getUTCFullYear(), v.getUTCMonth(), v.getUTCDate());
@@ -251,7 +256,8 @@ function normalize(raw) {
   const G = new Map();
   const grp = (loc, sku) => {
     const k = loc + '|' + sku;
-    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {}, mtTransactions: [] });
+    // Bổ sung ttTransactions vào group
+    if (!G.has(k)) G.set(k, { loc, sku, line: 'Snack', oh: [], tr: [], plan: {}, mtPlan: {}, qad: {}, mtQad: {}, planDetails: [], qadByCus: {}, mtTransactions: [], ttTransactions: [] });
     return G.get(k);
   };
   const life = s => master.get(s)?.life || 0;
@@ -327,6 +333,7 @@ function normalize(raw) {
     const chnlQad = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     const cusType = String(r['Customer Type'] ?? pick(r, /customer.*type|loại/i) ?? '').trim();
     
+    // Thu thập cho MT
     if (keyCus.toUpperCase() !== 'TT') {
       const mappedPlanCustomer = custypeMap[cusType.toUpperCase()];
       const finalCus = mappedPlanCustomer || keyCus; 
@@ -337,6 +344,13 @@ function normalize(raw) {
       g.mtTransactions.push({
           date: t, 
           customer: finalCus,
+          qty: ctn
+      });
+    } else {
+      // Thu thập cho TT
+      g.ttTransactions.push({
+          date: t,
+          customer: keyCus,
           qty: ctn
       });
     }
@@ -501,11 +515,11 @@ function render() {
     h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}${subRow}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
   } 
   
-  else if (tab === 'mt') {
+  else if (tab === 'mt' || tab === 'tt') {
     let body = '';
     let tPlan = 0, tActual = 0, tRem = 0;
     
-    // Định dạng ngày MM/DD/YYYY cho Follow MT
+    // Định dạng ngày MM/DD/YYYY cho Follow MT / TT
     const fmtD = v => {
         if (!v) return '—';
         const d = new Date(v);
@@ -517,23 +531,39 @@ function render() {
     };
 
     rows.forEach(r => {
-        const plansForMonth = (r.g.planDetails || []).filter(p => p.m === M);
+        const plansForMonth = (r.g.planDetails || []).filter(p => {
+            const isTT = String(p.customer).trim().toUpperCase() === 'TT';
+            return p.m === M && (tab === 'tt' ? isTT : !isTT);
+        });
         
         if (plansForMonth.length > 0) {
             plansForMonth.forEach(p => {
-                if (String(p.customer).trim().toUpperCase() === 'TT') return;
-
                 let actualCus = 0;
-                if (p.start && p.end) {
-                    actualCus = (r.g.mtTransactions || [])
-                        .filter(tx => tx.customer === p.customer && tx.date >= p.start && tx.date <= p.end)
-                        .reduce((sum, tx) => sum + tx.qty, 0);
+                
+                if (tab === 'tt') {
+                    // Logic tính Actual cho TT
+                    if (p.start && p.end) {
+                        actualCus = (r.g.ttTransactions || [])
+                            .filter(tx => tx.date >= p.start && tx.date <= p.end)
+                            .reduce((sum, tx) => sum + tx.qty, 0);
+                    } else {
+                        // Nếu TT không có ngày cụ thể, gom theo tháng M
+                        actualCus = (r.g.ttTransactions || [])
+                            .filter(tx => (new Date(tx.date).getUTCMonth() + 1) === M)
+                            .reduce((sum, tx) => sum + tx.qty, 0);
+                    }
                 } else {
-                    actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
+                    // Logic tính Actual cho MT
+                    if (p.start && p.end) {
+                        actualCus = (r.g.mtTransactions || [])
+                            .filter(tx => tx.customer === p.customer && tx.date >= p.start && tx.date <= p.end)
+                            .reduce((sum, tx) => sum + tx.qty, 0);
+                    } else {
+                        actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
+                    }
                 }
                 
                 const rem = p.plan - actualCus;
-                
                 tPlan += p.plan;
                 tActual += actualCus;
                 tRem += rem;
@@ -580,37 +610,77 @@ function render() {
 
   else if (tab === 'inv') {
     let body = '';
-    let t30 = 0, t50 = 0, t60 = 0, t70 = 0, tgt70 = 0;
+    let t30 = 0, t50 = 0, t60 = 0, t70 = 0, tgt70 = 0, tTotal = 0;
+    let rowIdx = 0;
     
     rows.forEach(r => {
         let b30 = 0, b50 = 0, b60 = 0, b70 = 0, bgt70 = 0;
+        let details = {}; // Lưu chi tiết theo MM.YYYY
         
         r.invLots.forEach(l => {
             if(l.h == null || l.qty <= 0) return;
-            if(l.h < 30) b30 += l.qty;
-            else if(l.h < 50) b50 += l.qty;
-            else if(l.h < 60) b60 += l.qty;
-            else if(l.h <= 70) b70 += l.qty;
-            else bgt70 += l.qty;
+            
+            // Lấy định dạng MM.YYYY cho Date
+            let dKey = '—';
+            if (l.exp) {
+                const d = new Date(l.exp);
+                dKey = String(d.getUTCMonth() + 1).padStart(2, '0') + '.' + d.getUTCFullYear();
+            }
+            if(!details[dKey]) details[dKey] = { b30:0, b50:0, b60:0, b70:0, bgt70:0 };
+
+            if(l.h < 30) { b30 += l.qty; details[dKey].b30 += l.qty; }
+            else if(l.h < 50) { b50 += l.qty; details[dKey].b50 += l.qty; }
+            else if(l.h < 60) { b60 += l.qty; details[dKey].b60 += l.qty; }
+            else if(l.h <= 70) { b70 += l.qty; details[dKey].b70 += l.qty; }
+            else { bgt70 += l.qty; details[dKey].bgt70 += l.qty; }
         });
 
-        if((b30+b50+b60+b70+bgt70) > 0) {
+        const rTotal = b30 + b50 + b60 + b70 + bgt70;
+        
+        if(rTotal > 0) {
             t30 += b30;
             t50 += b50;
             t60 += b60;
             t70 += b70;
             tgt70 += bgt70;
+            tTotal += rTotal;
+            rowIdx++;
             
+            const detailKeys = Object.keys(details).sort(); // Sort date nếu cần
+            const hasDetails = detailKeys.length > 0;
+            const btnHtml = hasDetails ? `<button type="button" class="acc-btn" onclick="document.querySelectorAll('.subrow-${rowIdx}').forEach(e => e.hidden = !e.hidden); this.textContent = this.textContent === '[+]' ? '[-]' : '[+]';">[+]</button>` : '';
+            
+            // Hàng chính hiển thị SP
             body += `<tr>
                 <td>${esc(r.g.loc)}</td>
                 <td>${esc(r.g.sku)}</td>
-                <td>${esc(r.g.name)}</td>
+                <td>${btnHtml}${esc(r.g.name)}</td>
                 <td class="n">${b30 > 0 ? fmt(b30) : ''}</td>
                 <td class="n">${b50 > 0 ? fmt(b50) : ''}</td>
                 <td class="n">${b60 > 0 ? fmt(b60) : ''}</td>
                 <td class="n">${b70 > 0 ? fmt(b70) : ''}</td>
                 <td class="n">${bgt70 > 0 ? fmt(bgt70) : ''}</td>
+                <td class="n" style="font-weight:bold; background:#f0f3f2">${fmt(rTotal)}</td>
             </tr>`;
+            
+            // Hàng phụ liệt kê chi tiết MM.YYYY
+            if(hasDetails) {
+                detailKeys.forEach(mKey => {
+                    const dVals = details[mKey];
+                    const dTotal = dVals.b30 + dVals.b50 + dVals.b60 + dVals.b70 + dVals.bgt70;
+                    body += `<tr class="subrow-${rowIdx}" hidden style="background:var(--ac2); font-size:0.95em;">
+                        <td></td>
+                        <td></td>
+                        <td style="padding-left: 28px; color:var(--mut)">&#8627; Date: <b style="color:var(--fg)">${mKey}</b></td>
+                        <td class="n">${dVals.b30 > 0 ? fmt(dVals.b30) : ''}</td>
+                        <td class="n">${dVals.b50 > 0 ? fmt(dVals.b50) : ''}</td>
+                        <td class="n">${dVals.b60 > 0 ? fmt(dVals.b60) : ''}</td>
+                        <td class="n">${dVals.b70 > 0 ? fmt(dVals.b70) : ''}</td>
+                        <td class="n">${dVals.bgt70 > 0 ? fmt(dVals.bgt70) : ''}</td>
+                        <td class="n" style="font-weight:bold">${fmt(dTotal)}</td>
+                    </tr>`;
+                });
+            }
         }
     });
 
@@ -622,6 +692,7 @@ function render() {
         <td class="n">${t60 > 0 ? fmt(t60) : ''}</td>
         <td class="n">${t70 > 0 ? fmt(t70) : ''}</td>
         <td class="n">${tgt70 > 0 ? fmt(tgt70) : ''}</td>
+        <td class="n" style="background:#d7dfdc">${tTotal > 0 ? fmt(tTotal) : ''}</td>
     </tr>` : '';
 
     h = `<div class="wrap"><table>
@@ -634,8 +705,9 @@ function render() {
             <th class="text-center hsd-60">50-60%</th>
             <th class="text-center hsd-70">60-70%</th>
             <th class="text-center hsd-gt70">&gt;70%</th>
+            <th class="text-center hsd-total">Total</th>
         </tr>
-        ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
+        ${body || `<tr><td colspan="9" class="empty">${tt('empty')}</td></tr>`}
         ${subRow}
     </table></div>`;
   }
