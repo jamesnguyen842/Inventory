@@ -597,21 +597,14 @@ function render() {
 
     h = `<div class="wrap"><table>
         <tr>
-            <th rowspan="2" style="vertical-align:bottom">Warehouse</th>
-            <th rowspan="2" style="vertical-align:bottom">Product Code</th>
-            <th rowspan="2" style="vertical-align:bottom">Product Name</th>
-            <th class="hsd-30">&lt;30%</th>
-            <th class="hsd-50">30-50%</th>
-            <th class="hsd-60">50-60%</th>
-            <th class="hsd-70">60-70%</th>
-            <th class="hsd-gt70">&gt;70%</th>
-        </tr>
-        <tr>
-            <th class="text-center hsd-30">Tháng ${M}</th>
-            <th class="text-center hsd-50">Tháng ${M}</th>
-            <th class="text-center hsd-60">Tháng ${M}</th>
-            <th class="text-center hsd-70">Tháng ${M}</th>
-            <th class="text-center hsd-gt70">Tháng ${M}</th>
+            <th>Warehouse</th>
+            <th>Product Code</th>
+            <th>Product Name</th>
+            <th class="text-center hsd-30">&lt;30%</th>
+            <th class="text-center hsd-50">30-50%</th>
+            <th class="text-center hsd-60">50-60%</th>
+            <th class="text-center hsd-70">60-70%</th>
+            <th class="text-center hsd-gt70">&gt;70%</th>
         </tr>
         ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
         ${subRow}
