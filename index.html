@@ -89,6 +89,8 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <label><span data-t="loc"></span><select id="fLoc"></select></label>
     <label><span data-t="line"></span><select id="fLine"></select></label>
     <label><span data-t="prod"></span><input type="text" id="fProd" placeholder="Gõ tên SP..."></label>
+    <!-- ĐÃ THÊM: Bộ lọc Customer Name -->
+    <label><span data-t="cus"></span><input type="text" id="fCus" placeholder="Gõ tên khách..."></label>
     <label><span data-t="warn"></span><select id="fWarn"></select></label>
   </div>
   
@@ -126,7 +128,7 @@ let LOGIC_RULES = [];
 
 /* ============ ĐA NGÔN NGỮ ============ */
 const T = {
- vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',
+ vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',cus:'Lọc khách hàng',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',
   sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current inventory', logic:'Logic',
   out:'Đăng xuất',loc:'Kho',sku:'SKU',prodT:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
   st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
@@ -134,10 +136,10 @@ const T = {
   loadingFolders:'Đang lấy danh sách ngày...',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
   nSum:'- Sell out (Số thùng còn lại phải bán) = Sales plan (Kế hoạch bán hàng) - QAD (số lượng thực tế đã bán trong giai đoạn yêu cầu)', nDet:'',
   unitTxt:'Đơn vị tính: Thùng', mtNote:'- Lưu ý: Số lượng tại cột Actual bao gồm số lượng thực tế đã bán và hàng khuyến mãi/ tặng kèm dạng sản phẩm, không bao gồm chiết khấu/ giảm giá dạng %, tiền mặt trực tiếp trên hóa đơn).'},
- en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',month:'Report month',warn:'Warning',all:'All',
+ en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',cus:'Filter customer',month:'Report month',warn:'Warning',all:'All',
   sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current inventory', logic:'Logic',
   out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
-  st:'Status',lot:'Status lot',skuSt:'SKU status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
+  st:'Status',lot:'Status lot',skuSt:'Status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
   mon:'Month',cond:'Logic Condition',risk:'Risk Details',act:'Action',note:'Note',wait:'Please wait...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in same month!',loaded:'Data loaded successfully!',
   loadingFolders:'Fetching dates...',lerr:'Login failed: ',est:'Estimated EXP',
   nSum:'- 0 if end of month, else Selling Plan', nDet:'',
@@ -367,11 +369,13 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-function compute(M, lineFilter, nameFilterStr, locFilter) {
+// Đã thêm tham số cusFilterStr để lọc SKU theo Customer Name trên toàn cục (nếu cần thiết)
+function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
   const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
   const locRe = locFilter && locFilter !== 'ALL' ? new RegExp('^' + locFilter + '$', 'i') : null;
+  const cusRe = cusFilterStr ? new RegExp(cusFilterStr, 'i') : null;
 
   const sortedSelected = [...SELECTED_FOLDERS].sort((a, b) => (a.y - b.y) || (a.m - b.m) || (a.d - b.d));
   const baseMonth = sortedSelected.length > 0 ? sortedSelected[0].m : CFG.months[0];
@@ -381,6 +385,13 @@ function compute(M, lineFilter, nameFilterStr, locFilter) {
     if (locRe && !locRe.test(String(g.loc || ''))) return;
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
+    
+    // Lọc theo Customer Name: Chỉ tính các SKU có liên quan tới KH này (qua plan hoặc transaction)
+    if (cusRe) {
+        const hasCusPlan = g.planDetails.some(p => cusRe.test(String(p.customer || p.channel)));
+        const hasCusTx = g.transactions.some(tx => cusRe.test(String(tx.customer)));
+        if (!hasCusPlan && !hasCusTx) return;
+    }
     
     let lots = g.oh.map(l => ({ ...l })), deficit = 0, R = null;
     const latestFolder = sortedSelected.length > 0 ? sortedSelected[sortedSelected.length - 1] : null;
@@ -456,11 +467,12 @@ function render() {
   if (!DB) return;
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
+  const cv = $('#fCus').value.trim(); // Đã thêm biến cv cho Customer Filter
   const locv = $('#fLoc').value; 
   
-  const currentFilterKey = `${M}_${lv}_${nv}_${locv}`;
+  const currentFilterKey = `${M}_${lv}_${nv}_${locv}_${cv}`;
   if (lastFilterKey !== currentFilterKey) {
-    cachedRows = compute(M, lv, nv, locv);
+    cachedRows = compute(M, lv, nv, locv, cv);
     lastFilterKey = currentFilterKey;
   }
   const rows = cachedRows;
@@ -510,8 +522,8 @@ function render() {
   } 
   
   else if (tab === 'mt' || tab === 'tt') {
-    let body = '';
     let tPlan = 0, tActual = 0, tRem = 0;
+    let tableData = []; // Array để thu thập và sort dữ liệu hiển thị
     
     const fmtD = v => {
         if (!v) return '—';
@@ -523,12 +535,13 @@ function render() {
         return `${mm}/${dd}/${yyyy}`;
     };
 
+    const cusReLocal = cv ? new RegExp(cv, 'i') : null;
+
     rows.forEach(r => {
         const plansForMonth = (r.g.planDetails || []).filter(p => p.m === M);
         
         if (plansForMonth.length > 0) {
             plansForMonth.forEach(p => {
-                // Xác định plan thuộc TT hay MT
                 let isTTPlan = false;
                 const chnl = String(p.channel).trim().toUpperCase();
                 const cust = String(p.customer).trim().toUpperCase();
@@ -541,6 +554,9 @@ function render() {
                 if (tab === 'tt' && !isTTPlan) return;
                 if (tab === 'mt' && isTTPlan) return;
 
+                const displayName = p.customer || p.channel;
+                if (cusReLocal && !cusReLocal.test(String(displayName))) return; // Lọc tại thời điểm render
+
                 let actualCus = 0;
                 
                 if (p.start && p.end) {
@@ -552,25 +568,43 @@ function render() {
                 }
                 
                 const rem = p.plan - actualCus;
-                
-                tPlan += p.plan;
-                tActual += actualCus;
-                tRem += rem;
-                
-                const remHtml = `<td class="n" style="${rem < 0 ? 'color:#ea580c; font-weight:bold' : ''}">${fmt(rem)}</td>`;
-                
-                body += `<tr>
-                    <td>${esc(r.g.loc)}</td>
-                    <td>${esc(r.g.sku)} - ${esc(r.g.name)}</td>
-                    <td>${esc(p.customer || p.channel)}</td>
-                    <td class="text-center">${fmtD(p.start)}</td>
-                    <td class="text-center">${fmtD(p.end)}</td>
-                    ${num(p.plan)}
-                    ${num(actualCus)}
-                    ${remHtml}
-                </tr>`;
+
+                tableData.push({
+                    loc: r.g.loc,
+                    sku: r.g.sku,
+                    name: r.g.name,
+                    customerName: displayName,
+                    start: p.start,
+                    end: p.end,
+                    plan: p.plan,
+                    actualCus: actualCus,
+                    rem: rem
+                });
             });
         }
+    });
+
+    // Sort bằng tên Customer
+    tableData.sort((a, b) => String(a.customerName).localeCompare(String(b.customerName)));
+
+    let body = '';
+    tableData.forEach(d => {
+        tPlan += d.plan;
+        tActual += d.actualCus;
+        tRem += d.rem;
+        
+        const remHtml = `<td class="n" style="${d.rem < 0 ? 'color:#ea580c; font-weight:bold' : ''}">${fmt(d.rem)}</td>`;
+        
+        body += `<tr>
+            <td>${esc(d.loc)}</td>
+            <td>${esc(d.sku)} - ${esc(d.name)}</td>
+            <td>${esc(d.customerName)}</td>
+            <td class="text-center">${fmtD(d.start)}</td>
+            <td class="text-center">${fmtD(d.end)}</td>
+            ${num(d.plan)}
+            ${num(d.actualCus)}
+            ${remHtml}
+        </tr>`;
     });
 
     const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
@@ -903,6 +937,7 @@ $('#btnAddFolder').onclick = addFolderSelect;
 $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
 $('#fProd').oninput = render;
+$('#fCus').oninput = render; // Gắn sự kiện để render lại bảng khi gõ filter tên khách hàng
 ['#fLoc', '#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
 $$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; $$
 ('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab));
