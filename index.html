@@ -361,7 +361,8 @@ function normalize(raw) {
     g.life = m ? m.life : 0; 
   });
   
-  return [...G.values()].filter(g => /mix|biteez|parteez|yappy/i.test(String(g.name)));
+  // ĐÃ SỬA: Thêm "vermicelli" vào biểu thức chính quy (Regex) để cho phép ngành hàng Vermicelli được load
+  return [...G.values()].filter(g => /mix|biteez|parteez|yappy|vermicelli/i.test(String(g.name)));
 }
 
 /* ============ TÍNH TOÁN ============ */
@@ -778,7 +779,8 @@ function setLang(l) {
 
 function fillFilters() {
   const curL = $('#fLine').value;
-  $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ'][i]}</option>`).join('');
+  // ĐÃ SỬA: Bổ sung thêm ['vermicelli', 0] và nhãn 'Vermicelli' vào list dropdown
+  $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0], ['vermicelli', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ', 'Vermicelli'][i]}</option>`).join('');
   if (curL) $('#fLine').value = curL;
   const curLoc = $('#fLoc').value || 'ALL';
   $('#fLoc').innerHTML = `<option value="ALL">${tt('all')}</option><option value="South">South</option><option value="North">North</option>`;
