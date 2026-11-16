@@ -361,8 +361,8 @@ function normalize(raw) {
     g.life = m ? m.life : 0; 
   });
   
-  // ĐÃ SỬA: Thêm "vermicelli" vào biểu thức chính quy (Regex) để cho phép ngành hàng Vermicelli được load
-  return [...G.values()].filter(g => /mix|biteez|parteez|yappy|vermicelli/i.test(String(g.name)));
+  // ĐÃ SỬA: Thêm "double dragon" vào biểu thức chính quy (Regex) để cho phép ngành hàng Vermicelli được load (tự động mapping Vermicelli => Double Dragon)
+  return [...G.values()].filter(g => /mix|biteez|parteez|yappy|vermicelli|double dragon/i.test(String(g.name)));
 }
 
 /* ============ TÍNH TOÁN ============ */
@@ -374,7 +374,14 @@ function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'D
 function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
-  const lineRe = lineFilter && lineFilter !== 'ALL' ? new RegExp(lineFilter, 'i') : null;
+  
+  // ĐÃ SỬA: Tự động map từ khóa "vermicelli" thành "vermicelli|double dragon" cho Regex
+  let fLineStr = lineFilter;
+  if (fLineStr && fLineStr.toLowerCase() === 'vermicelli') {
+      fLineStr = 'vermicelli|double dragon';
+  }
+  const lineRe = fLineStr && fLineStr !== 'ALL' ? new RegExp(fLineStr, 'i') : null;
+  
   const locRe = locFilter && locFilter !== 'ALL' ? new RegExp('^' + locFilter + '$', 'i') : null;
   const cusRe = cusFilterStr ? new RegExp(cusFilterStr, 'i') : null;
 
