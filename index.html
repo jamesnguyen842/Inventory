@@ -89,7 +89,6 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <label><span data-t="loc"></span><select id="fLoc"></select></label>
     <label><span data-t="line"></span><select id="fLine"></select></label>
     <label><span data-t="prod"></span><input type="text" id="fProd" placeholder="Gõ tên SP..."></label>
-    <!-- ĐÃ THÊM: Bộ lọc Customer Name -->
     <label><span data-t="cus"></span><input type="text" id="fCus" placeholder="Gõ tên khách..."></label>
     <label><span data-t="warn"></span><select id="fWarn"></select></label>
   </div>
@@ -101,7 +100,6 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <button data-tab="mt"></button>
     <button data-tab="tt"></button>
     <button data-tab="logic"></button>
-    <!-- Thêm dòng Đơn vị tính: Thùng ngang hàng tabs -->
     <span style="margin-left: auto; align-self: center; color: var(--mut); font-style: italic;" data-t="unitTxt"></span>
   </div>
   <main><div id="view"></div></main>
@@ -184,11 +182,16 @@ function parseExcelDate(v) {
   let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3]);
   
+  // FIX: Chống nhận diện chéo (Tránh việc 11/1/2026 bị hiểu lầm thành 1/11/2026 hoặc ngược lại)
   m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})$/);
   if (m) {
     let y = +m[3] < 100 ? 2000 + +m[3] : +m[3];
-    if (+m[1] > 12) return Date.UTC(y, +m[2] - 1, +m[1]);
-    return Date.UTC(y, +m[1] - 1, +m[2]);
+    let part1 = +m[1]; // Vị trí đầu
+    let part2 = +m[2]; // Vị trí hai
+    // Đảm bảo luôn đọc dạng MM/DD/YYYY cho Sales Plan để không bị trôi tháng
+    if (part1 <= 12 && part2 > 12) return Date.UTC(y, part1 - 1, part2);
+    if (part2 <= 12 && part1 > 12) return Date.UTC(y, part2 - 1, part1);
+    return Date.UTC(y, part1 - 1, part2); 
   }
   
   m = s.match(/^(\d{1,2})[\/\-.\s]([a-zA-Z]{3})(?:[\/\-.\s](\d{2,4}))?$/);
@@ -338,7 +341,6 @@ function normalize(raw) {
     const chnlQad = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     const cusType = String(r['Customer Type'] ?? pick(r, /customer.*type|loại/i) ?? '').trim();
     
-    // Tích hợp Customer Mapping đồng bộ cho TẤT CẢ giao dịch (cả MT và TT)
     const mappedPlanCustomer = custypeMap[cusType.toUpperCase()];
     const finalCus = mappedPlanCustomer || keyCus; 
     
@@ -351,7 +353,6 @@ function normalize(raw) {
         qty: ctn
     });
     
-    // Vẫn duy trì MT QAD count nguyên bản
     if (/^mt$/i.test(keyCus) || /^mt$/i.test(chnlQad)) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
   });
 
@@ -361,7 +362,6 @@ function normalize(raw) {
     g.life = m ? m.life : 0; 
   });
   
-  // ĐÃ SỬA: Thêm "double dragon" vào biểu thức chính quy (Regex) để cho phép ngành hàng Vermicelli được load (tự động mapping Vermicelli => Double Dragon)
   return [...G.values()].filter(g => /mix|biteez|parteez|yappy|vermicelli|double dragon/i.test(String(g.name)));
 }
 
@@ -370,12 +370,10 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-// Đã thêm tham số cusFilterStr để lọc SKU theo Customer Name trên toàn cục (nếu cần thiết)
 function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
   
-  // ĐÃ SỬA: Tự động map từ khóa "vermicelli" thành "vermicelli|double dragon" cho Regex
   let fLineStr = lineFilter;
   if (fLineStr && fLineStr.toLowerCase() === 'vermicelli') {
       fLineStr = 'vermicelli|double dragon';
@@ -394,7 +392,6 @@ function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
     
-    // Lọc theo Customer Name: Chỉ tính các SKU có liên quan tới KH này (qua plan hoặc transaction)
     if (cusRe) {
         const hasCusPlan = g.planDetails.some(p => cusRe.test(String(p.customer || p.channel)));
         const hasCusTx = g.transactions.some(tx => cusRe.test(String(tx.customer)));
@@ -475,7 +472,7 @@ function render() {
   if (!DB) return;
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
-  const cv = $('#fCus').value.trim(); // Đã thêm biến cv cho Customer Filter
+  const cv = $('#fCus').value.trim(); 
   const locv = $('#fLoc').value; 
   
   const currentFilterKey = `${M}_${lv}_${nv}_${locv}_${cv}`;
@@ -531,7 +528,7 @@ function render() {
   
   else if (tab === 'mt' || tab === 'tt') {
     let tPlan = 0, tActual = 0, tRem = 0;
-    let tableData = []; // Array để thu thập và sort dữ liệu hiển thị
+    let tableData = []; 
     
     const fmtD = v => {
         if (!v) return '—';
@@ -546,6 +543,7 @@ function render() {
     const cusReLocal = cv ? new RegExp(cv, 'i') : null;
 
     rows.forEach(r => {
+        // Code HTML luôn duyệt duy nhất các Plan thuộc Tháng M đang chọn
         const plansForMonth = (r.g.planDetails || []).filter(p => p.m === M);
         
         if (plansForMonth.length > 0) {
@@ -557,16 +555,18 @@ function render() {
                 if (chnl === 'TT') isTTPlan = true;
                 else if (chnl === 'MT') isTTPlan = false;
                 else if (cust === 'TT') isTTPlan = true;
-                else isTTPlan = false; // Mặc định MT nếu không ghi rõ
+                else isTTPlan = false; 
                 
                 if (tab === 'tt' && !isTTPlan) return;
                 if (tab === 'mt' && isTTPlan) return;
 
                 const displayName = p.customer || p.channel;
-                if (cusReLocal && !cusReLocal.test(String(displayName))) return; // Lọc tại thời điểm render
+                if (cusReLocal && !cusReLocal.test(String(displayName))) return;
 
                 let actualCus = 0;
                 
+                // FIX: Thêm bộ lọc block QAD tràn tháng. 
+                // Ép giao dịch phải nằm chính xác giữa khoảng Start/End VÀ phải có invoice date rơi vào đúng tháng M đang xem.
                 if (p.start && p.end) {
                     actualCus = (r.g.transactions || [])
                         .filter(tx => tx.customer === p.customer && tx.date >= p.start && tx.date <= p.end)
@@ -592,7 +592,6 @@ function render() {
         }
     });
 
-    // Sort bằng tên Customer
     tableData.sort((a, b) => String(a.customerName).localeCompare(String(b.customerName)));
 
     let body = '';
@@ -786,7 +785,6 @@ function setLang(l) {
 
 function fillFilters() {
   const curL = $('#fLine').value;
-  // ĐÃ SỬA: Bổ sung thêm ['vermicelli', 0] và nhãn 'Vermicelli' vào list dropdown
   $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0], ['vermicelli', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ', 'Vermicelli'][i]}</option>`).join('');
   if (curL) $('#fLine').value = curL;
   const curLoc = $('#fLoc').value || 'ALL';
@@ -946,7 +944,7 @@ $('#btnAddFolder').onclick = addFolderSelect;
 $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
 $('#fProd').oninput = render;
-$('#fCus').oninput = render; // Gắn sự kiện để render lại bảng khi gõ filter tên khách hàng
+$('#fCus').oninput = render;
 ['#fLoc', '#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
 $$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; $$
 ('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab));
