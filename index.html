@@ -244,7 +244,7 @@ function normalize(raw) {
   });
 
   const unitMap = {};
-  (raw.unit || []).forEach(r => { unitMap[String(pick(r, /^(unit|đơn vị|mã)/i) ?? Object.values(r)[0]).trim()] = String(pick(r, /ea qty type/i) ?? ''); });
+  (raw.unit || []).forEach(r => { unitMap[String(pick(r, /^(unit|đơn vị|mã)/i) ?? Object.values(r)[0]).trim().toUpperCase()] = String(pick(r, /ea qty type/i) ?? ''); });
   const eaLevel = u => { const t = unitMap[u] || ''; return /3|cn|can/i.test(t) ? 3 : /2|pack/i.test(t) ? 2 : 1; };
 
   const custypeMap = {};
@@ -326,7 +326,7 @@ function normalize(raw) {
     const q = +(r['Qty Invoiced'] ?? pick(r, /qty.*invoiced|số lượng/i)) || 0;
     if (skipSku(sku) || !t) return;
     
-    const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim();
+    const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim().toUpperCase();
     const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;
     const mo = monthOf(t);
     const loc = normLoc(r['HQ'] ?? pick(r, /hq|kho/i));
