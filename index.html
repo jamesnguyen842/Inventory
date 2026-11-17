@@ -4,69 +4,165 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Báo cáo tổng hợp tồn kho</title>
+
+<!-- Cấu hình CSS của theme Sailor -->
+<link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+<link href="assets/vendor/aos/aos.css" rel="stylesheet">
+<link href="assets/css/main.css" rel="stylesheet"> 
+
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600&family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <style>
-:root{--bg:#f5f6f4;--fg:#1c2421;--mut:#66706b;--card:#fff;--line:#d9dedb;--ac:#1f6f5c;--ac2:#e8f1ee}
-@media(prefers-color-scheme:dark){:root{--bg:#141917;--fg:#e6ebe8;--mut:#93a09a;--card:#1d2421;--line:#2f3a35;--ac:#4fb59b;--ac2:#22302b}}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 "Segoe UI",system-ui,sans-serif}
-[hidden]{display:none!important}
-button,select,input{font:inherit;color:inherit}
-button{cursor:pointer;border:1px solid var(--line);background:var(--card);padding:6px 14px;border-radius:6px}
-button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
-button.pri{background:var(--ac);border-color:var(--ac);color:#fff}
-button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
-#login{max-width:340px;margin:12vh auto;background:var(--card);border:1px solid var(--line);padding:28px;border-radius:10px;display:grid;gap:12px}
-#login h2{margin:0 0 4px}
-input,select{padding:7px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);width:100%}
-.err{color:#b3261e;min-height:1.2em}
-header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap}
-header h1{font-size:22px;margin:0;flex:1}
-.data-selector {display:flex;gap:8px;padding:14px 24px;border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;background:var(--ac2)}
-.filters{display:flex;gap:16px;padding:14px 24px;flex-wrap:wrap}
-.filters label{display:grid;gap:3px;min-width:170px;color:var(--mut);font-size:12px}
-.tabs{display:flex;gap:4px;padding:0 24px;border-bottom:1px solid var(--line)}
-.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 16px}
-.tabs button.on{border-bottom-color:var(--ac);background:none;color:var(--ac);font-weight:600}
-main{padding:16px 24px}
+/* TONE MÀU GREEN PANTONE VÀ SUPERELLIPSE */
+:root {
+  --bg: #f2f7f5;
+  --fg: #2b3d36;
+  --mut: #688478;
+  --card: #ffffff;
+  --line: #cddcd6;
+  --ac: #34645c; 
+  --ac2: #d6e5df; 
+  --ac-hover: #264a44;
+  --shadow: 0px 8px 24px rgba(52, 100, 92, 0.1);
+  --border-radius: 24px; 
+}
+@media(prefers-color-scheme:dark){
+  :root{--bg:#1a231f;--fg:#e6ebe8;--mut:#93a09a;--card:#212e29;--line:#2f4039;--ac:#72b075;--ac2:#263630;--shadow: 0px 5px 20px rgba(0,0,0,0.3);}
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.6 "Open Sans", system-ui, sans-serif; transition: all 0.3s ease;}
+[hidden] { display: none !important; }
+button, select, input { font: inherit; color: inherit; transition: 0.3s; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--card); padding: 8px 18px; border-radius: 50px; font-family: "Raleway", sans-serif; font-weight: 600; font-size: 13px; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--ac); outline-offset: 1px; }
+button:hover { background: var(--line); transform: translateY(-1px); }
+button.pri { background: var(--ac); border-color: var(--ac); color: #fff; box-shadow: 0 4px 10px rgba(52, 100, 92, 0.2); }
+button.pri:hover { background: var(--ac-hover); border-color: var(--ac-hover); box-shadow: 0 6px 15px rgba(52, 100, 92, 0.3); }
+button.on { background: var(--ac); color: #fff; border-color: var(--ac); }
+button.on:hover { background: var(--ac-hover); color: #fff;}
 
-.wrap{overflow-x:auto;overflow-y:auto;max-height:70vh;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+input, select { padding: 10px 15px; border: 1px solid var(--line); border-radius: 16px; background: var(--bg); width: 100%; font-size: 14px; }
+input:focus, select:focus { border-color: var(--ac); background: var(--card); box-shadow: 0 0 5px rgba(52, 100, 92,0.2); outline: none; }
 
-table{border-collapse:collapse;width:100%;white-space:nowrap}
-th,td{padding:7px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
-th{background:var(--ac2);position:sticky;top:0;z-index:2}
-td.n{text-align:right;font-variant-numeric:tabular-nums}
-.neg{color:#b3261e;font-weight:600}
-.b{padding:2px 9px;border-radius:99px;font-size:12px;border:1px solid;display:inline-block}
-.ok{color:#1e7a4a;background:#e3f4ea;border-color:#b7e0c6}
-.wt{color:#7a6a12;background:#f8f1cf;border-color:#e6d98b}
-.nr{color:#96570f;background:#fbe9d0;border-color:#efc78f}
-.dp{color:#a2400c;background:#f9d9c6;border-color:#eba57f}
-.ex{color:#a3201a;background:#f8d7d4;border-color:#e59b95}
-.note{color:var(--mut);margin:0 0 10px}
-.empty{padding:28px;text-align:center;color:var(--mut)}
-/* CSS Bảng HSD & MT */
-.hsd-30 { background-color: #C65911; color: white; text-align: center; font-weight: bold; }
-.hsd-50 { background-color: #F4B084; text-align: center; font-weight: bold; }
-.hsd-60 { background-color: #FFFF00; text-align: center; font-weight: bold; }
-.hsd-70 { background-color: #A9D08E; text-align: center; font-weight: bold; }
-.hsd-gt70 { background-color: #548235; color: white; text-align: center; font-weight: bold; }
-.hsd-total { background-color: #3f4e48; color: white; text-align: center; font-weight: bold; }
+/* App Layout */
+header { display: flex; align-items: center; gap: 12px; padding: 15px 30px; border-bottom: 1px solid var(--line); flex-wrap: wrap; background: var(--card); box-shadow: 0 2px 15px rgba(0,0,0,0.05); }
+header h1 { font-size: 22px; margin: 0; flex: 1; font-family: "Raleway", sans-serif; font-weight: 700; color: var(--ac); }
+header h1::before { content: ''; display: inline-block; width: 4px; height: 20px; background: var(--ac); margin-right: 10px; vertical-align: middle; border-radius: 2px;}
+
+.data-selector { display: flex; gap: 10px; padding: 15px 30px; border-bottom: 1px solid var(--line); flex-wrap: wrap; align-items: center; background: var(--ac2); }
+.filters { display: flex; gap: 15px; padding: 15px 30px; flex-wrap: wrap; background: var(--card); }
+.filters label { display: grid; gap: 5px; min-width: 170px; color: var(--mut); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* TABS & SLIDER ANIMATION */
+.tabs-outer { display: flex; gap: 8px; padding: 10px 30px 0; border-bottom: 2px solid var(--line); background: var(--card); align-items: center; overflow-x: auto; position: relative; }
+.tabs { display: flex; gap: 8px; position: relative; padding: 0; border: none; background: transparent; }
+.tabs button { border: none !important; padding: 12px 20px; font-size: 14px; color: var(--mut); background: none; margin-bottom: 0; border-radius: 0; }
+.tabs button:hover { color: var(--ac); transform: none; background: none; }
+.tabs button.on { color: var(--ac); font-weight: 700; background: none; }
+.tab-slider { position: absolute; bottom: 0; left: 0; height: 3px; background-color: var(--ac); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1); border-radius: 3px 3px 0 0; }
+
+main { padding: 24px 30px; background: var(--bg); min-height: calc(100vh - 200px); }
+
+/* BẢNG CHUNG & TIÊU ĐỀ CỐ ĐỊNH CÓ MÀU GREEN */
+.wrap { overflow-x: auto; overflow-y: auto; max-height: 70vh; border: none; border-radius: 16px; background: var(--card); box-shadow: var(--shadow); }
+.wrap table { border-collapse: collapse; width: 100%; white-space: nowrap; font-size: 11px; }
+.wrap th, .wrap td { padding: 4px 6px; text-align: left; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.wrap th { background-color: var(--ac2) !important; color: var(--ac) !important; position: sticky; top: 0; z-index: 2; font-family: "Raleway", sans-serif; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; box-shadow: 0 1px 0 var(--line); }
+.wrap tr:hover td { background: #fbfbfc; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; }
+.neg { color: #d9232d; font-weight: 700; }
+
+/* BẢNG CURRENT INVENTORY - GIỮ LẠI MÀU SẮC RIÊNG CỦA CỘT HSD */
+.wrap th.hsd-30 { background-color: #d9232d !important; color: white !important; border:none; }
+.wrap th.hsd-50 { background-color: #fd7e14 !important; color: white !important; border:none;}
+.wrap th.hsd-60 { background-color: #ffc107 !important; color: #333 !important; border:none;}
+.wrap th.hsd-70 { background-color: #28a745 !important; color: white !important; border:none;}
+.wrap th.hsd-gt70 { background-color: #20c997 !important; color: white !important; border:none;}
+.wrap th.hsd-total { background-color: #343a40 !important; color: white !important; border:none;}
 .text-center { text-align: center !important; }
 
-/* Accordion Toggle */
-.acc-btn { padding: 0 6px; margin-right: 6px; border-radius: 4px; background: none; border: 1px solid var(--mut); color: var(--mut); font-family: monospace; font-weight: bold; }
-.acc-btn:hover { border-color: var(--ac); color: var(--ac); }
+/* Badges */
+.b { padding: 4px 10px; border-radius: 50px; font-size: 11px; border: none; display: inline-block; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.ok { color: #155724; background: #d4edda; }
+.wt { color: #856404; background: #fff3cd; }
+.nr { color: #9c4321; background: #fde5c5; }
+.dp { color: #721c24; background: #f8d7da; }
+.ex { color: #fff; background: #d9232d; }
+
+.note { color: var(--mut); margin: 0 0 15px; font-size: 13px; }
+.empty { padding: 50px; text-align: center; color: var(--mut); font-size: 16px; font-style: italic; }
+
+.acc-btn { padding: 2px 8px; margin-right: 8px; border-radius: 8px; background: var(--ac2); border: none; color: var(--ac); font-family: monospace; font-weight: bold; cursor: pointer; transition: 0.2s; }
+.acc-btn:hover { background: var(--ac); color: white; transform: scale(1.1); }
+
+/* Animations */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+.animated-view { animation: fadeInUp 0.4s ease-out forwards; }
+
+
+/* ========================================================
+   CSS SAU ĐĂNG NHẬP & LAYOUT 65-35 CHO CURRENT INVENTORY
+   ======================================================== */
+body.logged-in { background: url('assets/img/hero-carousel/hero-carousel-1.png') no-repeat center center fixed !important; background-size: cover !important; }
+body.logged-in header { background: transparent !important; border-bottom: 1px solid rgba(255,255,255,0.3) !important; box-shadow: none !important; }
+body.logged-in header h1 { color: #fff !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+body.logged-in header button { background: rgba(255,255,255,0.2); color: #fff; border-color: rgba(255,255,255,0.5); }
+body.logged-in header button:hover { background: rgba(255,255,255,0.4); }
+body.logged-in header button.on { background: var(--ac); color: #fff; border-color: var(--ac); }
+
+body.logged-in .tabs-outer, body.logged-in main { background: var(--bg) !important; overflow-x: hidden; }
+.controls-wrapper { display: flex; flex-wrap: wrap; gap: 10px; background: var(--ac2) !important; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--line); }
+.controls-wrapper .data-selector { border: none; padding: 0; background: transparent; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1 1 auto; }
+.controls-wrapper .filters { border: none; padding: 0; background: transparent; display: flex; flex-wrap: wrap; gap: 10px; flex: 2 1 auto; justify-content: flex-end; }
+.controls-wrapper .filters label { flex: 1 1 90px; max-width: 140px; min-width: 90px; font-size: 11px; gap: 2px; }
+.controls-wrapper .filters input, .controls-wrapper .filters select { padding: 4px 6px; font-size: 12px; width: 100%; height: 30px; }
+
+/* FIX CANVAS BLOWOUT & GIỮ LAYOUT 65-35 CHO CURRENT INVENTORY */
+.inv-layout { display: flex; flex-wrap: nowrap; gap: 15px; align-items: stretch; width: 100%; height: 65vh; min-width: 0; }
+.inv-table-col { flex: 0 0 65%; max-width: 65%; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+.inv-chart-col { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+.inv-table-col .wrap { height: 100%; max-height: 100%; overflow-y: auto; } 
+
+.chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; height: 100%; }
+.chart-grid.single-chart { grid-template-columns: minmax(0, 1fr); }
+.chart-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; min-height: 0; min-width: 0; }
+.canvas-container { position: relative; width: 100%; flex: 1; min-height: 0; min-width: 0; }
 </style>
 </head>
 <body>
 
-<div id="login">
-  <h2>Đăng nhập</h2>
-  <input id="em" type="email" placeholder="Email" autocomplete="username">
-  <input id="pw" type="password" placeholder="Password" autocomplete="current-password">
-  <button class="pri" id="btnLogin">Đăng nhập</button>
-  <div class="err" id="loginErr"></div>
-</div>
+<section id="login" class="d-flex align-items-center justify-content-center" style="background: url('assets/img/hero-carousel/hero-carousel-1.png') no-repeat center center; background-size: cover; height: 100vh; position: relative;">
+  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6);"></div>
+  <div class="container position-relative" data-aos="fade-up" data-aos-delay="100">
+    <div class="row justify-content-center">
+      <div class="col-lg-4 col-md-6">
+        <div class="card p-4 shadow-lg border-0" style="background: rgba(255, 255, 255, 0.95); border-radius: 24px;">
+          <div class="text-center mb-2">
+            <img src="logo.png" alt="Logo" style="max-height: 60px;" onerror="this.style.display='none'">
+          </div>
+          <h2 class="text-center mb-1" style="font-family: 'Raleway', sans-serif; font-weight: 700; color: #34645c;" data-t="welcome">Chào mừng!</h2>
+          <p class="text-center mb-4" style="color: gray; font-size: 12px; margin-top: 0;" data-t="loginDesc">Vui lòng đăng nhập để tiếp tục xem báo cáo</p>
+          
+          <div class="mb-3">
+            <input id="em" type="email" class="form-control px-3 py-2" placeholder="Email" autocomplete="username">
+          </div>
+          <div class="mb-4">
+            <input id="pw" type="password" class="form-control px-3 py-2" placeholder="Password" autocomplete="current-password">
+          </div>
+          
+          <div class="d-grid">
+            <button class="btn btn-success py-2" id="btnLogin" style="background-color: #34645c; border-color: #34645c; border-radius: 50px; font-weight: 600; font-family: 'Raleway', sans-serif;" data-t="loginBtn">
+              Đăng nhập
+            </button>
+          </div>
+          <div class="err text-center mt-2" id="loginErr" style="color: #d9232d; font-size: 13px; min-height: 1.2em;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <div id="app" hidden>
   <header>
@@ -75,41 +171,67 @@ td.n{text-align:right;font-variant-numeric:tabular-nums}
     <button id="btnOut"></button>
   </header>
   
-  <div class="data-selector">
-    <span style="font-weight:600;margin-right:8px" data-t="selDate"></span>
-    <div id="folder-container" style="display:flex;gap:8px;flex-wrap:wrap"></div>
-    <button id="btnAddFolder" type="button" title="Thêm ngày">+</button>
-    <button id="btnLoadData" class="pri" data-t="loadData"></button>
-    <span id="dataStatus" style="font-size:13px;color:var(--mut);margin-left:8px"></span>
-  </div>
+  <div class="controls-wrapper">
+      <div class="data-selector" style="flex-direction: column; align-items: flex-start; border: none; padding: 0; background: transparent; flex: 1 1 auto; gap: 4px;">
+        <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; width:100%;">
+          <span style="font-weight:600;margin-right:8px;font-family:'Raleway',sans-serif;" data-t="selDate"></span>
+          <div id="folder-container" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+          <button id="btnAddFolder" type="button" title="Thêm ngày" style="width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; font-size: 18px;">+</button>
+          <button id="btnLoadData" class="pri" data-t="loadData" style="padding: 6px 12px;"></button>
+        </div>
+        <div id="dataStatus" style="font-size:12px; color:var(--mut); min-height: 18px; margin-left: 2px;"></div>
+      </div>
 
-  <div class="filters">
-    <label><span data-t="year"></span><select id="fYear"></select></label>
-    <label><span data-t="month"></span><select id="fMonth"></select></label>
-    <label><span data-t="loc"></span><select id="fLoc"></select></label>
-    <label><span data-t="line"></span><select id="fLine"></select></label>
-    <label><span data-t="prod"></span><input type="text" id="fProd" placeholder="Gõ tên SP..."></label>
-    <!-- ĐÃ THÊM: Bộ lọc Customer Name -->
-    <label><span data-t="cus"></span><input type="text" id="fCus" placeholder="Gõ tên khách..."></label>
-    <label><span data-t="warn"></span><select id="fWarn"></select></label>
+      <div class="filters">
+        <label><span data-t="year"></span><select id="fYear"></select></label>
+        <label><span data-t="month"></span><select id="fMonth"></select></label>
+        <label><span data-t="loc"></span><select id="fLoc"></select></label>
+        <label><span data-t="line"></span><select id="fLine"></select></label>
+        <label><span data-t="prod"></span><input type="text" id="fProd" placeholder="Gõ tên SP..."></label>
+        <label><span data-t="cus"></span><input type="text" id="fCus" placeholder="Gõ tên khách..."></label>
+        <label><span data-t="warn"></span><select id="fWarn"></select></label>
+      </div>
   </div>
   
-  <div class="tabs">
-    <button data-tab="inv" class="on"></button>
-    <button data-tab="sum"></button>
-    <button data-tab="det"></button>
-    <button data-tab="mt"></button>
-    <button data-tab="tt"></button>
-    <button data-tab="logic"></button>
-    <!-- Thêm dòng Đơn vị tính: Thùng ngang hàng tabs -->
-    <span style="margin-left: auto; align-self: center; color: var(--mut); font-style: italic;" data-t="unitTxt"></span>
+  <div class="tabs-outer">
+    <div class="tabs">
+      <button data-tab="inv" class="on"></button>
+      <button data-tab="sum"></button>
+      <button data-tab="det"></button>
+      <button data-tab="mt"></button>
+      <button data-tab="tt"></button>
+      <button data-tab="logic"></button>
+      <div class="tab-slider" id="tabSlider"></div>
+    </div>
+    <span style="margin-left: auto; color: var(--mut); font-style: italic; white-space: nowrap;" data-t="unitTxt"></span>
   </div>
+  
   <main><div id="view"></div></main>
+
+  <footer style="text-align: center; padding: 15px; color: #666; font-size: 13px; background: transparent; border-top: 1px solid var(--line);" data-t="footerTxt">
+    Bản quyền thuộc về © Thai Corp International (Vietnam) Co., Ltd. Bảo lưu mọi quyền.
+  </footer>
 </div>
+
+<script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="assets/vendor/aos/aos.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
+/* ============ KHỞI TẠO HIỆU ỨNG ============ */
+AOS.init({ duration: 800, easing: 'ease-in-out', once: true, mirror: false });
+
+function updateTabSlider() {
+    const btn = document.querySelector('.tabs button.on');
+    const slider = document.getElementById('tabSlider');
+    if(btn && slider) {
+        slider.style.width = btn.offsetWidth + 'px';
+        slider.style.transform = `translateX(${btn.offsetLeft}px)`;
+    }
+}
+window.addEventListener('resize', updateTabSlider);
+
 /* ============ CẤU HÌNH ============ */
 const CFG = {
   url: 'https://didthuazwmuxddlxhkob.supabase.co',
@@ -126,24 +248,88 @@ let ALL_FOLDERS = [];
 let SELECTED_FOLDERS = [];
 let LOGIC_RULES = []; 
 
-/* ============ ĐA NGÔN NGỮ ============ */
+const HARDCODED_LOGIC = [
+  { id: 'EMPTY',
+    vi: { cond: 'Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0', risk: 'Không', act: 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.' },
+    en: { cond: 'Batch_Closing_Stock = 0 AND Total_SKU_Closing_Stock >= 0', risk: 'None', act: 'Maintain sales plan and issue stock strictly by FIFO.' }
+  },
+  { id: 'SAFE',
+    vi: { cond: 'Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', risk: 'Không', act: 'Tiếp tục duy trì kế hoạch bán hàng và xuất kho theo đúng chuẩn FIFO.' },
+    en: { cond: 'Total_SKU_Closing_Stock >= Safety_Stock AND %_Remaining_Shelf_Life >= 65%', risk: 'None', act: 'Maintain sales plan and issue stock strictly by FIFO.' }
+  },
+  { id: 'NEAR',
+    vi: { cond: '30% <= %_Remaining_Shelf_Life < 50%', risk: 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', act: 'Cần tính CTKM clear tồn sớm' },
+    en: { cond: '30% <= %_Remaining_Shelf_Life < 50%', risk: 'Risk of disposal or needing promo to clear stock', act: 'Plan early promo to clear stock' }
+  },
+  { id: 'DISPOSE',
+    vi: { cond: '10% <= %_Remaining_Shelf_Life < 30%', risk: 'Rủi ro hủy hàng hoặc phải chạy CTKM để clear tồn', act: 'Cần tính CTKM lớn xả tồn' },
+    en: { cond: '10% <= %_Remaining_Shelf_Life < 30%', risk: 'Risk of disposal or needing promo to clear stock', act: 'Plan major promo to clear stock' }
+  },
+  { id: 'EXPIRED',
+    vi: { cond: '%_Remaining_Shelf_Life <= 0% HOẶC Expiry_Date <= Current_Date', risk: 'Lô hàng đã chính thức hết HSD, không được phép lưu thông trên thị trường.', act: 'Cách ly Lô hàng chờ hủy' },
+    en: { cond: '%_Remaining_Shelf_Life <= 0% OR Expiry_Date <= Current_Date', risk: 'Batch officially expired, not allowed for market circulation.', act: 'Isolate batch for disposal' }
+  },
+  { id: 'SHORT',
+    vi: { cond: 'Total_SKU_Available_Stock < Total_SKU_Demand\\n(Tính tổng tất cả các Lô + In-Transit trong tháng)', risk: 'Thiếu hàng thực tế.\\nKhách hàng/Siêu thị sẽ lock code', act: 'Lên PO đặt hàng\\nCân chỉnh hàng hóa giữa các kênh và khách hàng' },
+    en: { cond: 'Total_SKU_Available_Stock < Total_SKU_Demand\\n(Sum of all Batches + In-Transit for the month)', risk: 'Actual shortage.\\nCustomers/Supermarkets will lock code', act: 'Issue PO\\nBalance goods across channels and customers' }
+  },
+  { id: 'BELOW',
+    vi: { cond: '0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\\nTồn kho tổng của SKU cuối tháng rơi xuống dưới mức dự phòng an toàn (< 2 tuần bán).', risk: 'Rất dễ thiếu hàng nếu Demand vọt lên hoặc PO về trễ.', act: 'Đẩy nhanh tiến độ giao hàng\\nLên PO đặt hàng nếu đã hết\\nCân chỉnh hàng hóa giữa các kênh' },
+    en: { cond: '0 < Total_SKU_Closing_Stock < Safety_Stock_Buffer\\nEnd-of-month total SKU stock falls below safety buffer (< 2 weeks of sales).', risk: 'High risk of shortage if Demand spikes or PO delays.', act: 'Accelerate delivery\\nIssue PO if out of stock\\nBalance goods across channels' }
+  },
+  { id: 'SHORT_MT',
+    vi: { cond: 'Total_SKU_Closing_Stock >= Demand NHƯNG MT_Qualified_Stock < MT_Demand\\nTổng kho SKU vẫn còn hàng (hoặc còn ở các Lô bị khóa MT HSD<60%),', risk: 'Thiếu hàng thực tế.\\nKhách hàng/Siêu thị sẽ lock code', act: 'Đẩy nhanh tiến độ giao hàng\\nLên PO đặt hàng nếu đã hết' },
+    en: { cond: 'Total_SKU_Closing_Stock >= Demand BUT MT_Qualified_Stock < MT_Demand\\nTotal SKU stock still available (or locked in MT Batches with Shelf Life <60%)', risk: 'Actual shortage.\\nCustomers/Supermarkets will lock code', act: 'Accelerate delivery\\nIssue PO if out of stock' }
+  },
+  { id: 'WATCH',
+    vi: { cond: '50% <= %_Remaining_Shelf_Life <= 65%', risk: 'Rủi ro dẫn đến bước Cận date (<50% HSD)', act: 'Yêu cầu tăng cường kế hoạch bán hàng' },
+    en: { cond: '50% <= %_Remaining_Shelf_Life <= 65%', risk: 'Risk of dropping to Near date (<50% Shelf Life)', act: 'Request to increase sales plan' }
+  },
+  { id: 'OVER',
+    vi: { cond: 'Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)', risk: 'Rủi ro tồn đọng hàng dẫn đến trạng thái Theo dõi (HSD 50–65%)', act: 'Yêu cầu tăng cường kế hoạch bán hàng và cân chỉnh lại PO đặt hàng cho lần kế tiếp' },
+    en: { cond: 'Total_SKU_Closing_Stock > Plan × 30% × Useful Life(month)', risk: 'Risk of stagnation leading to Watch status (Shelf Life 50-65%)', act: 'Request to increase sales plan and adjust PO for next time' }
+  }
+];
+
 const T = {
- vi:{ttl:'Báo cáo tổng hợp tồn kho',selDate:'Chọn ngày:',loadData:'Xác nhận tải',year:'Năm báo cáo',line:'Lọc ngành hàng',prod:'Lọc tên sản phẩm',cus:'Lọc khách hàng',month:'Tháng báo cáo',warn:'Cảnh báo',all:'Tất cả',
-  sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current inventory', logic:'Logic',
-  out:'Đăng xuất',loc:'Kho',sku:'SKU',prodT:'Sản phẩm',lineC:'Ngành',begin:'Tồn đầu kỳ',tr:'In transit',so:'Sell out',end:'Tồn cuối kỳ',cov:'Coverday',
-  st:'Trạng thái',lot:'Trạng thái lô',skuSt:'Trạng thái SKU',mnf:'NSX',exp:'HSD',hsd:'% HSD',qty:'Tồn cuối lô',empty:'Không có dữ liệu',
-  mon:'Tháng',cond:'Điều kiện logic',risk:'Chi Tiết Rủi Ro',act:'Hành Động',note:'Ghi chú',wait:'Xin chờ trong giây lát...',reqErr:'Vui lòng chọn ít nhất 1 ngày!',dupErr:'Không được chọn nhiều ngày trong cùng 1 tháng!',loaded:'Đã tải dữ liệu thành công!',
-  loadingFolders:'Đang lấy danh sách ngày...',lerr:'Đăng nhập thất bại: ',est:'HSD ước tính',
-  nSum:'- Sell out (Số thùng còn lại phải bán) = Sales plan (Kế hoạch bán hàng) - QAD (số lượng thực tế đã bán trong giai đoạn yêu cầu)', nDet:'',
-  unitTxt:'Đơn vị tính: Thùng', mtNote:'- Lưu ý: Số lượng tại cột Actual bao gồm số lượng thực tế đã bán và hàng khuyến mãi/ tặng kèm dạng sản phẩm, không bao gồm chiết khấu/ giảm giá dạng %, tiền mặt trực tiếp trên hóa đơn).'},
- en:{ttl:'Inventory Summary Report',selDate:'Select date:',loadData:'Load Data',year:'Report year',line:'Filter line',prod:'Filter product name',cus:'Filter customer',month:'Report month',warn:'Warning',all:'All',
-  sum:'Form sum',det:'Form detail', mt:'Follow MT', tt:'Follow TT', inv:'Current inventory', logic:'Logic',
-  out:'Log out',loc:'Warehouse',sku:'SKU',prodT:'Product',lineC:'Line',begin:'Opening stock',tr:'In transit',so:'Sell out',end:'Ending inventory',cov:'Coverday',
-  st:'Status',lot:'Status lot',skuSt:'Status',mnf:'MNF',exp:'EXP',hsd:'% Shelf-life',qty:'Lot ending',empty:'No data',
-  mon:'Month',cond:'Logic Condition',risk:'Risk Details',act:'Action',note:'Note',wait:'Please wait...',reqErr:'Please select at least 1 date!',dupErr:'Cannot select multiple dates in same month!',loaded:'Data loaded successfully!',
-  loadingFolders:'Fetching dates...',lerr:'Login failed: ',est:'Estimated EXP',
-  nSum:'- 0 if end of month, else Selling Plan', nDet:'',
-  unitTxt:'Unit: Carton', mtNote:'- Note: The quantity in the Actual column includes the actual sold quantity and promotional/free items in product form, excluding % discounts or direct cash deductions on invoices).'}
+ vi: {
+  ttl: 'Báo cáo tổng hợp tồn kho', selDate: 'Chọn ngày:', loadData: 'Xác nhận tải', year: 'Năm báo cáo', line: 'Lọc ngành hàng', prod: 'Lọc tên sản phẩm', cus: 'Lọc khách hàng', month: 'Tháng báo cáo', warn: 'Cảnh báo', all: 'Tất cả',
+  sum: 'Form sum', det: 'Form detail', mt: 'Follow MT', tt: 'Follow TT', inv: 'Current inventory', logic: 'Logic',
+  out: 'Đăng xuất', loc: 'Kho', sku: 'SKU', prodT: 'Sản phẩm', lineC: 'Ngành', begin: 'Tồn đầu kỳ', tr: 'In transit', so: 'Sell out', end: 'Tồn cuối kỳ', cov: 'Coverday',
+  st: 'Trạng thái', lot: 'Trạng thái lô', skuSt: 'Trạng thái SKU', mnf: 'NSX', exp: 'HSD', hsd: '% HSD', qty: 'Tồn cuối lô', empty: 'Không có dữ liệu',
+  mon: 'Tháng', cond: 'Điều kiện logic', risk: 'Chi Tiết Rủi Ro Thực Tế', act: 'Hành Động', note: 'Ghi chú', wait: 'Xin chờ trong giây lát...', reqErr: 'Vui lòng chọn ít nhất 1 ngày!', dupErr: 'Không được chọn nhiều ngày trong cùng 1 tháng!', loaded: 'Đã tải dữ liệu thành công!',
+  loadingFolders: 'Đang lấy danh sách ngày...', lerr: 'Đăng nhập thất bại: ', est: 'HSD ước tính',
+  nSum: '- Sell out (Số thùng còn lại phải bán) = Sales plan (Kế hoạch bán hàng) - QAD (số lượng thực tế đã bán trong giai đoạn yêu cầu)', nDet: '',
+  unitTxt: 'Đơn vị tính: Thùng', mtNote: '- Lưu ý: Số lượng tại cột Actual bao gồm số lượng thực tế đã bán và hàng khuyến mãi/ tặng kèm dạng sản phẩm, không bao gồm chiết khấu/ giảm giá dạng %, tiền mặt trực tiếp trên hóa đơn).',
+  welcome: 'Chào mừng!', loginDesc: 'Vui lòng đăng nhập để tiếp tục xem báo cáo', loginBtn: 'Đăng nhập',
+  footerTxt: 'Bản quyền thuộc về © Thai Corp International (Vietnam) Co., Ltd. Bảo lưu mọi quyền.',
+  addDate: 'Thêm ngày', selDatePlaceholder: 'Chọn ngày',
+  mtOverview: 'Tổng quan tiến độ bán hàng', mtDetail: 'Xem chi tiết',
+  mtChartCusTitle: 'Tổng quan theo Khách hàng (Thùng)', mtChartLineTitle: 'Tiến độ theo Ngành hàng',
+  sold: 'Đã bán', remaining: 'Còn lại', pctAchieved: '% Đạt',
+  thWh: 'Kho', thProd: 'Sản phẩm (SKU - Tên)', thLine: 'Ngành hàng', thCus: 'Tên Khách hàng', thStart: 'Ngày bắt đầu', thEnd: 'Ngày kết thúc', thPlan: 'KH Bán hàng', thActual: 'Thực tế', thRem: 'Còn lại', thTotal: 'Tổng cộng',
+  logicNote: '<strong style="display:block; margin-bottom:8px;">Về trường hợp Tồn kho thực tế (on hand) lệch so với Tồn cuối kỳ trước:</strong><ul style="margin:0; padding-left:20px;"><li style="margin-bottom:6px;"><strong>Trong thực tế vận hành:</strong> Sự chênh lệch này thường do các nguyên nhân như hao hụt, hàng hỏng/vỡ, xuất/nhập nhầm... Cần kiểm kê lại để tìm nguyên nhân và thực hiện bút toán điều chỉnh.</li><li><strong>Trong công cụ báo cáo này:</strong> File on hand được xem là nguồn sự thật tuyệt đối (Source of Truth) tại thời điểm báo cáo...</li></ul>',
+  remMonths: 'Số tháng còn lại', qtyCartons: 'Số lượng thùng', qtyCartonsScale: 'Số lượng (thùng)', monthsUse: 'Số tháng SD', carton: 'thùng', subtotal: 'TỔNG CỘNG', date: 'Date'
+ },
+ en: {
+  ttl: 'Inventory Summary Report', selDate: 'Select date:', loadData: 'Load Data', year: 'Report year', line: 'Filter line', prod: 'Product name', cus: 'Customer name', month: 'Report month', warn: 'Warning', all: 'All',
+  sum: 'Form sum', det: 'Form detail', mt: 'Follow MT', tt: 'Follow TT', inv: 'Current inventory', logic: 'Logic',
+  out: 'Log out', loc: 'WH', sku: 'SKU', prodT: 'Product', lineC: 'Line', begin: 'Opening stock', tr: 'In transit', so: 'Sell out', end: 'Ending inventory', cov: 'Coverday',
+  st: 'Status', lot: 'Status lot', skuSt: 'Status', mnf: 'MNF', exp: 'EXP', hsd: '% Shelf-life', qty: 'Lot ending', empty: 'No data',
+  mon: 'Month', cond: 'Logic Condition', risk: 'Risk Details', act: 'Action', note: 'Note', wait: 'Please wait...', reqErr: 'Please select at least 1 date!', dupErr: 'Cannot select multiple dates in same month!', loaded: 'Data loaded successfully!',
+  loadingFolders: 'Fetching dates...', lerr: 'Login failed: ', est: 'Estimated EXP',
+  nSum: '- Sell out (Remaining cartons to sell) = Sales plan - QAD (actual sold quantity in the requested period)', nDet: '',
+  unitTxt: 'Unit: Carton', mtNote: '- Note: The quantity in the Actual column includes the actual sold quantity and promotional/free items in product form, excluding % discounts or direct cash deductions on invoices.',
+  welcome: 'Welcome!', loginDesc: 'Please login to continue viewing the report', loginBtn: 'Login',
+  footerTxt: 'Copyright © Thai Corp International (Vietnam) Co., Ltd. All rights reserved.',
+  addDate: 'Add date', selDatePlaceholder: 'Select date',
+  mtOverview: 'Sales Progress Overview', mtDetail: 'View details',
+  mtChartCusTitle: 'Overview by Customer (Cartons)', mtChartLineTitle: 'Progress by Line',
+  sold: 'Sold', remaining: 'Remaining', pctAchieved: '% Achieved',
+  thWh: 'WH', thProd: 'Product (SKU - Name)', thLine: 'Line', thCus: 'Customer Name', thStart: 'Start date', thEnd: 'End date', thPlan: 'Sale Plan', thActual: 'Actual', thRem: 'Remaining', thTotal: 'Total',
+  logicNote: '<strong style="display:block; margin-bottom:8px;">Regarding the case where actual inventory (on hand) deviates from the previous Ending Inventory:</strong><ul style="margin:0; padding-left:20px;"><li style="margin-bottom:6px;"><strong>In actual operations:</strong> This discrepancy is usually due to shrinkage, damaged/broken goods, wrong import/export... Inventory count is needed to find the root cause and make adjustment entries.</li><li><strong>In this reporting tool:</strong> The on hand file is considered the Single Source of Truth at the time of reporting...</li></ul>',
+  remMonths: 'Remaining months', qtyCartons: 'Carton quantity', qtyCartonsScale: 'Quantity (cartons)', monthsUse: 'Shelf life (months)', carton: 'cartons', subtotal: 'SUBTOTAL', date: 'Date'
+ }
 };
 
 const ST = {
@@ -162,9 +348,18 @@ const ST = {
 /* ============ TIỆN ÍCH ============ */
 const $= s => document.querySelector(s),$$ = s => [...document.querySelectorAll(s)];
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const fmt = n => n == null ? '—' : (Math.round(n * 10) / 10).toLocaleString('en-US');
+
+/* FORMAT SỐ THEO CHUẨN QUỐC TẾ - THÔNG MINH THEO TAB */
+const fmt = (n) => {
+    if (n == null) return '—';
+    if (tab === 'mt' || tab === 'tt') {
+        return Math.round(n).toLocaleString('en-US'); // Số nguyên cho MT, TT
+    }
+    return (Math.round(n * 10) / 10).toLocaleString('en-US'); // Giữ 1 thập phân cho các tab khác
+};
+
 const MN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-let lang = 'vi', sb = null, DB = null, tab = 'inv'; // Set Tab mặc định
+let lang = 'vi', sb = null, DB = null, tab = 'inv'; 
 
 const pick = (r, re) => { 
   if (!r) return undefined;
@@ -253,9 +448,7 @@ function normalize(raw) {
     if (keys.length >= 2) {
       const qadType = String(r[keys[0]]).trim().toUpperCase();
       const planCustomer = String(r[keys[1]]).trim();
-      if (qadType) {
-        custypeMap[qadType] = planCustomer;
-      }
+      if (qadType) { custypeMap[qadType] = planCustomer; }
     }
   });
 
@@ -273,7 +466,6 @@ function normalize(raw) {
     const qty = +(r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i)) || 0;
     
     if (skipSku(sku) || !qty) return;
-
     const g = grp(loc, sku);
     if (!g.fallbackName) g.fallbackName = String(r['Sort Name'] ?? pick(r, /sort.*name|tên/i) ?? '').trim();
     const exp = parseExcelDate(r['Expiry Date'] ?? r['ExpiryDate'] ?? pick(r, /expiry|exp|hsd/i));
@@ -304,15 +496,14 @@ function normalize(raw) {
     const m = parseMonth(r['Month'] ?? pick(r, /month|tháng/i));
     const q = +(r['Sell Plan'] ?? pick(r, /sell.*plan|plan/i)) || 0;
     if (skipSku(sku) || !m) return;
-    const g = grp(normLoc(r['Warehouse'] ?? pick(r, /warehouse|kho/i)), sku);
+    const g = grp(normLoc(r['WH'] ?? pick(r, /WH|kho/i)), sku);
     g.plan[m] = (g.plan[m] || 0) + q;
     
     const chnl = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     if (/^mt$/i.test(chnl)) g.mtPlan[m] = (g.mtPlan[m] || 0) + q;
     
     g.planDetails.push({
-        m: m,
-        channel: chnl,
+        m: m, channel: chnl,
         customer: String(r['Customers'] ?? pick(r, /customer|khách/i) ?? '').trim(),
         start: parseExcelDate(r['Starting date'] ?? pick(r, /start|bắt/i)),
         end: parseExcelDate(r['Ending date'] ?? pick(r, /end|kết/i)),
@@ -331,37 +522,46 @@ function normalize(raw) {
     const mo = monthOf(t);
     const loc = normLoc(r['HQ'] ?? pick(r, /hq|kho/i));
     const g = grp(loc, sku);
-    
     g.qad[mo] = (g.qad[mo] || 0) + ctn;
     
     const keyCus = String(r['Key Cus'] ?? r['Customer Name'] ?? r['Customer'] ?? pick(r, /key.*cus|khách|customer/i) ?? '').trim();
     const chnlQad = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
     const cusType = String(r['Customer Type'] ?? pick(r, /customer.*type|loại/i) ?? '').trim();
+
+    // BỎ QUA TẤT CẢ KHÁCH HÀNG KHÔNG PHẢI LÀ MODERN TRADE KHI PHÂN TÍCH KHÁCH HÀNG (MT/TT)
+    const upperCusType = cusType.toUpperCase();
+    let isModernTrade = upperCusType.startsWith('MODERN TRADE');
     
-    // Tích hợp Customer Mapping đồng bộ cho TẤT CẢ giao dịch (cả MT và TT)
-    const mappedPlanCustomer = custypeMap[cusType.toUpperCase()];
+    if (!isModernTrade && !upperCusType.includes('TRADITIONAL')) {
+        return; 
+    }
+
+    const mappedPlanCustomer = custypeMap[upperCusType];
     const finalCus = mappedPlanCustomer || keyCus; 
     
     g.qadByCus[mo] = g.qadByCus[mo] || {};
     g.qadByCus[mo][finalCus] = (g.qadByCus[mo][finalCus] || 0) + ctn;
     
-    g.transactions.push({
-        date: t, 
-        customer: finalCus,
-        qty: ctn
-    });
+    // Ghi lại loại gốc để lọc ở bước sau
+    g.transactions.push({ date: t, customer: finalCus, qty: ctn, originalType: upperCusType });
     
-    // Vẫn duy trì MT QAD count nguyên bản
     if (/^mt$/i.test(keyCus) || /^mt$/i.test(chnlQad)) g.mtQad[mo] = (g.mtQad[mo] || 0) + ctn;
   });
 
   G.forEach(g => { 
     const m = master.get(g.sku); 
     g.name = (m && m.name) ? m.name : (g.fallbackName || g.sku);
-    g.life = m ? m.life : 0; 
+    g.life = m ? m.life : 0;
+    
+    const rawN = String(g.name).toLowerCase();
+    if(rawN.includes('vermicelli') || rawN.includes('double dragon')) g.line = 'Vermicelli';
+    else if(rawN.includes('mix')) g.line = 'MIX';
+    else if(rawN.includes('biteez')) g.line = 'BiteeZ';
+    else if(rawN.includes('yappy')) g.line = 'Yappy';
+    else if(rawN.includes('partee')) g.line = 'ParteeZ';
+    else g.line = 'Other';
   });
   
-  // ĐÃ SỬA: Thêm "double dragon" vào biểu thức chính quy (Regex) để cho phép ngành hàng Vermicelli được load (tự động mapping Vermicelli => Double Dragon)
   return [...G.values()].filter(g => /mix|biteez|parteez|yappy|vermicelli|double dragon/i.test(String(g.name)));
 }
 
@@ -370,18 +570,12 @@ const remain = (plan, qad, m) => plan[m] != null ? (qad[m] != null ? Math.max(pl
 const sum = a => a.reduce((s, x) => s + x.qty, 0);
 function lotStatus(h) { return h == null ? '' : h <= 0 ? 'EXPIRED' : h < 30 ? 'DISPOSE' : h < 50 ? 'NEAR' : h < 65 ? 'WATCH' : 'SAFE'; }
 
-// Đã thêm tham số cusFilterStr để lọc SKU theo Customer Name trên toàn cục (nếu cần thiết)
 function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
   const end = Date.UTC(CURRENT_YEAR, M, 0), days = new Date(end).getUTCDate(), out = [];
   const nameRe = nameFilterStr ? new RegExp(nameFilterStr, 'i') : null;
-  
-  // ĐÃ SỬA: Tự động map từ khóa "vermicelli" thành "vermicelli|double dragon" cho Regex
   let fLineStr = lineFilter;
-  if (fLineStr && fLineStr.toLowerCase() === 'vermicelli') {
-      fLineStr = 'vermicelli|double dragon';
-  }
+  if (fLineStr && fLineStr.toLowerCase() === 'vermicelli') fLineStr = 'vermicelli|double dragon';
   const lineRe = fLineStr && fLineStr !== 'ALL' ? new RegExp(fLineStr, 'i') : null;
-  
   const locRe = locFilter && locFilter !== 'ALL' ? new RegExp('^' + locFilter + '$', 'i') : null;
   const cusRe = cusFilterStr ? new RegExp(cusFilterStr, 'i') : null;
 
@@ -393,8 +587,6 @@ function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
     if (locRe && !locRe.test(String(g.loc || ''))) return;
     if (lineRe && !lineRe.test(String(g.name || ''))) return;
     if (nameRe && !nameRe.test(String(g.name || ''))) return;
-    
-    // Lọc theo Customer Name: Chỉ tính các SKU có liên quan tới KH này (qua plan hoặc transaction)
     if (cusRe) {
         const hasCusPlan = g.planDetails.some(p => cusRe.test(String(p.customer || p.channel)));
         const hasCusTx = g.transactions.some(tx => cusRe.test(String(tx.customer)));
@@ -411,13 +603,9 @@ function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
       
       let so = 0;
       const eomMonth = SELECTED_FOLDERS.find(f => f.m === m && f.isEOM && f.y === CURRENT_YEAR);
-      if (eomMonth) {
-          so = 0; 
-      } else if (latestFolder && m > latestFolder.m) {
-          so = g.plan[m] || 0;
-      } else {
-          so = (m === baseMonth && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m);
-      }
+      if (eomMonth) { so = 0; } 
+      else if (latestFolder && m > latestFolder.m) { so = g.plan[m] || 0; } 
+      else { so = (m === baseMonth && g.plan[m] == null && !CFG.baseNoPlanUseQad) ? 0 : remain(g.plan, g.qad, m); }
 
       let rem = so + deficit;
       for (const l of lots) { if (rem <= 0) break; const t = Math.min(l.qty, rem); l.qty -= t; rem -= t; }
@@ -426,20 +614,11 @@ function compute(M, lineFilter, nameFilterStr, locFilter, cusFilterStr) {
     });
     
     if (!R) return;
-
     const isFutureM = latestFolder && M > latestFolder.m;
     const mtDem = isFutureM ? (g.mtPlan[M] || 0) : remain(g.mtPlan, g.mtQad, M);
-    
     const totalDem = R.so;
-    const dl = lots.filter(l => l.qty > 0).map(l => {
-      const h = l.slDirect != null ? l.slDirect : null;
-      return { ...l, h, st: lotStatus(h) };
-    });
-    
-    const invLots = [...g.oh, ...g.tr.filter(t => t.m <= M)].map(l => {
-      const h = l.slDirect != null ? l.slDirect : null;
-      return { ...l, h };
-    });
+    const dl = lots.filter(l => l.qty > 0).map(l => { const h = l.slDirect != null ? l.slDirect : null; return { ...l, h, st: lotStatus(h) }; });
+    const invLots = [...g.oh, ...g.tr.filter(t => t.m <= M)].map(l => { const h = l.slDirect != null ? l.slDirect : null; return { ...l, h }; });
 
     const mtQual = dl.filter(l => l.h != null && l.h >= 60).reduce((s, l) => s + l.qty, 0);
     const limit = g.plan[M] > 0 && g.life ? g.plan[M] * 0.3 * g.life : null;
@@ -471,18 +650,88 @@ function passWarn(w, skuSt, lotSts) {
 let lastFilterKey = '';
 let cachedRows = [];
 
+window.myCharts = window.myCharts || {};
+window.chartState = {};
+window.myMtCharts = window.myMtCharts || [];
+
+window.drawChart = function(lineKey) {
+    if (!window.chartState || !window.chartState[lineKey]) return;
+    let state = window.chartState[lineKey];
+    let cvs = document.getElementById('donutChart' + state.idx);
+    if (!cvs) return;
+    let ctx = cvs.getContext('2d');
+    if (window.myCharts[lineKey]) { window.myCharts[lineKey].destroy(); }
+    
+    if (state.activeRowIdx != null && state.rows[state.activeRowIdx]) {
+        let rowData = state.rows[state.activeRowIdx];
+        let labels = rowData.lots.map(l => l.date); 
+        let monthsData = rowData.lots.map(l => l.diff); 
+        let qtysData = rowData.lots.map(l => l.qty); 
+        let bgColors = rowData.lots.map(l => l.color);
+        
+        window.myCharts[lineKey] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { type: 'line', label: tt('remMonths'), data: monthsData, borderColor: '#fd7e14', backgroundColor: '#fd7e14', borderWidth: 2, pointRadius: 4, xAxisID: 'xTop', fill: false },
+                    { type: 'bar', label: tt('qtyCartons'), data: qtysData, backgroundColor: bgColors, borderRadius: 8, xAxisID: 'xBottom' }
+                ]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { boxWidth: 12, font: {size: 10} } },
+                    title: { display: true, text: rowData.name, font: {size: 11}, padding: {bottom: 10} },
+                    tooltip: { callbacks: { label: function(c) { if (c.datasetIndex === 0) return ` ${tt('remMonths')}: ${c.raw}`; return ` ${tt('qtyCartonsScale')}: ${fmt(c.raw)} ${tt('carton')}`; } } }
+                },
+                scales: {
+                    xTop: { type: 'linear', position: 'top', title: { display: true, text: tt('monthsUse'), font: {size: 10} }, grid: { drawOnChartArea: false } },
+                    xBottom: { type: 'linear', position: 'bottom', title: { display: true, text: tt('qtyCartonsScale'), font: {size: 10} } },
+                    y: { title: { display: false } }
+                }
+            }
+        });
+    } else {
+        let d = state.doughnutData;
+        let sumVal = d.b30 + d.b50 + d.b60 + d.b70 + d.bgt70;
+        window.myCharts[lineKey] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['<30%', '30-50%', '50-60%', '60-70%', '>70%'],
+                datasets: [{ data: [d.b30, d.b50, d.b60, d.b70, d.bgt70], backgroundColor: ['#d9232d', '#fd7e14', '#ffc107', '#28a745', '#20c997'] }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, layout: { padding: 0 },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: function(c) { let val = c.raw; let pct = ((val / sumVal) * 100).toFixed(1) + '%'; return ` ${c.label}: ${fmt(val)} ${tt('carton')} (${pct})`; } } }
+                }
+            }
+        });
+    }
+};
+
+window.toggleRow = function(btn, rowIdx, lineKey) {
+    let isHidden = true;
+    document.querySelectorAll('.subrow-' + rowIdx).forEach(e => { e.hidden = !e.hidden; isHidden = e.hidden; });
+    btn.textContent = isHidden ? '[+]' : '[-]';
+    if (window.chartState && window.chartState[lineKey]) {
+        let state = window.chartState[lineKey];
+        if (!isHidden) state.activeRowIdx = rowIdx;
+        else if (state.activeRowIdx === rowIdx) state.activeRowIdx = null; 
+        window.drawChart(lineKey);
+    }
+};
+
 function render() {
   if (!DB) return;
   const w = $('#fWarn').value, M = +$('#fMonth').value;
   const lv = $('#fLine').value, nv = $('#fProd').value.trim();
-  const cv = $('#fCus').value.trim(); // Đã thêm biến cv cho Customer Filter
-  const locv = $('#fLoc').value; 
+  const cv = $('#fCus').value.trim(); const locv = $('#fLoc').value; 
   
   const currentFilterKey = `${M}_${lv}_${nv}_${locv}_${cv}`;
-  if (lastFilterKey !== currentFilterKey) {
-    cachedRows = compute(M, lv, nv, locv, cv);
-    lastFilterKey = currentFilterKey;
-  }
+  if (lastFilterKey !== currentFilterKey) { cachedRows = compute(M, lv, nv, locv, cv); lastFilterKey = currentFilterKey; }
   const rows = cachedRows;
   
   let h = '';
@@ -494,26 +743,16 @@ function render() {
       const stKey = r.sku || worst || 'EMPTY';
       const risk = ST[stKey]?.[lang === 'vi' ? 3 : 5] || '';
       const act = ST[stKey]?.[lang === 'vi' ? 4 : 6] || '';
-      return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
+      return `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${esc(r.g.line)}</td>${num(r.begin)}${num(r.tr)}${num(r.so)}${num(r.ending, 1)}<td class="n">${fmt(r.cov)}</td><td>${badge(r.sku || worst)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\\n/g,'<br>')}</td></tr>`;
     }).join('');
     
-    const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
+    const subtext = tt('subtotal');
     const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="4" style="text-align:right">${subtext}</td>${num(tBegin)}${num(tTr)}${num(tSo)}${num(tEnd, 1)}<td></td><td></td><td></td><td></td></tr>` : '';
     h = body ? `<div class="wrap"><table>${th('loc','sku','prodT','lineC','begin','tr','so','end','cov','st','risk','act')}${body}${subRow}</table></div><div class="note" style="margin-top:14px; line-height:1.6">${tt('nSum')}</div>` : `<div class="empty">${tt('empty')}</div>`;
   } 
   else if (tab === 'det') {
     let body = '', tQty = 0;
-    
-    const d = x => {
-        if (!x) return '—';
-        const date = new Date(x);
-        if (isNaN(date)) return '—';
-        const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
-        const dd = String(date.getUTCDate()).padStart(2, '0');
-        const yyyy = date.getUTCFullYear();
-        return `${mm}/${dd}/${yyyy}`;
-    };
-
+    const d = x => { if (!x) return '—'; const date = new Date(x); if (isNaN(date)) return '—'; return `${String(date.getUTCMonth() + 1).padStart(2, '0')}/${String(date.getUTCDate()).padStart(2, '0')}/${date.getUTCFullYear()}`; };
     rows.forEach(r => r.lots.forEach(l => {
       if (!passWarn(w, r.sku, [l.st]) && !(w === r.sku)) return;
       if (w !== 'ALL' && w !== r.sku && l.st !== w && !(w === 'SAFE' && l.st === 'SAFE' && !r.sku)) return;
@@ -522,293 +761,380 @@ function render() {
       const stKey = l.st || 'EMPTY';
       const risk = ST[stKey]?.[lang === 'vi' ? 3 : 5] || '';
       const act = ST[stKey]?.[lang === 'vi' ? 4 : 6] || '';
-      body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\n/g,'<br>')}</td></tr>`;
+      body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${esc(r.g.name)}</td><td>${d(l.mnf)}</td><td>${d(l.exp)}${l.est ? ' *' : ''}</td>${num(l.qty)}<td class="n">${l.h == null ? '—' : fmt(l.h) + '%'}</td><td>${badge(l.st)}</td><td>${badge(r.sku)}</td><td style="white-space:normal;min-width:180px">${esc(risk)}</td><td style="white-space:normal;min-width:220px">${esc(act).replace(/\\n/g,'<br>')}</td></tr>`;
     }));
-    const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
+    const subtext = tt('subtotal');
     const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="5" style="text-align:right">${subtext}</td>${num(tQty)}<td></td><td></td><td></td><td></td><td></td></tr>` : '';
     h = body ? `<p class="note">${tt('note')} <b>*</b> ${tt('est')}</p><div class="wrap"><table>${th('loc','sku','prodT','mnf','exp','qty','hsd','lot','skuSt','risk','act')}${body}${subRow}</table></div>` : `<div class="empty">${tt('empty')}</div>`;
   } 
   
   else if (tab === 'mt' || tab === 'tt') {
-    let tPlan = 0, tActual = 0, tRem = 0;
-    let tableData = []; // Array để thu thập và sort dữ liệu hiển thị
-    
-    const fmtD = v => {
-        if (!v) return '—';
-        const d = new Date(v);
-        if (isNaN(d.getTime())) return String(v).split('T')[0];
-        const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-        const dd = String(d.getUTCDate()).padStart(2, '0');
-        const yyyy = d.getUTCFullYear();
-        return `${mm}/${dd}/${yyyy}`;
-    };
-
+    let tableData = []; 
+    const fmtD = v => { if (!v) return '—'; const d = new Date(v); if (isNaN(d.getTime())) return String(v).split('T')[0]; return `${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}/${d.getUTCFullYear()}`; };
     const cusReLocal = cv ? new RegExp(cv, 'i') : null;
 
     rows.forEach(r => {
-        const plansForMonth = (r.g.planDetails || []).filter(p => p.m === M);
+        let items = {}; 
         
-        if (plansForMonth.length > 0) {
-            plansForMonth.forEach(p => {
-                let isTTPlan = false;
-                const chnl = String(p.channel).trim().toUpperCase();
-                const cust = String(p.customer).trim().toUpperCase();
+        // Quét dữ liệu Plan
+        (r.g.planDetails || []).filter(p => p.m === M).forEach(p => {
+            let c = String(p.customer || p.channel).trim();
+            if (!items[c]) items[c] = { plan: 0, actualCus: 0, isTT: false, isMT: false, start: p.start, end: p.end };
+            items[c].plan += p.plan;
+            
+            if(String(p.channel).trim().toUpperCase() === 'TT' || c.toUpperCase() === 'TT') items[c].isTT = true;
+            else items[c].isMT = true; // Mặc định MT
+        });
+        
+        // Quét dữ liệu QAD
+        if (r.g.qadByCus && r.g.qadByCus[M]) {
+            Object.keys(r.g.qadByCus[M]).forEach(c => {
+                let cUpper = c.toUpperCase();
+                let isTT = (cUpper === 'TT' || cUpper.includes('TRUYỀN THỐNG'));
                 
-                if (chnl === 'TT') isTTPlan = true;
-                else if (chnl === 'MT') isTTPlan = false;
-                else if (cust === 'TT') isTTPlan = true;
-                else isTTPlan = false; // Mặc định MT nếu không ghi rõ
-                
-                if (tab === 'tt' && !isTTPlan) return;
-                if (tab === 'mt' && isTTPlan) return;
-
-                const displayName = p.customer || p.channel;
-                if (cusReLocal && !cusReLocal.test(String(displayName))) return; // Lọc tại thời điểm render
-
-                let actualCus = 0;
-                
-                if (p.start && p.end) {
-                    actualCus = (r.g.transactions || [])
-                        .filter(tx => tx.customer === p.customer && tx.date >= p.start && tx.date <= p.end)
-                        .reduce((sum, tx) => sum + tx.qty, 0);
-                } else {
-                    actualCus = (r.g.qadByCus && r.g.qadByCus[M]) ? (r.g.qadByCus[M][p.customer] || 0) : 0;
+                let isMT = false;
+                const txMatch = r.g.transactions.find(tx => tx.customer === c);
+                if (txMatch && txMatch.originalType && txMatch.originalType.startsWith('MODERN TRADE')) {
+                    isMT = true;
+                } else if (!isTT && cUpper !== 'TT') { 
+                    isMT = true; 
                 }
-                
-                const rem = p.plan - actualCus;
 
-                tableData.push({
-                    loc: r.g.loc,
-                    sku: r.g.sku,
-                    name: r.g.name,
-                    customerName: displayName,
-                    start: p.start,
-                    end: p.end,
-                    plan: p.plan,
-                    actualCus: actualCus,
-                    rem: rem
-                });
+                if (!items[c]) items[c] = { plan: 0, actualCus: 0, isTT: isTT, isMT: isMT, start: null, end: null };
+                items[c].actualCus += r.g.qadByCus[M][c];
             });
         }
-    });
 
-    // Sort bằng tên Customer
+        Object.keys(items).forEach(c => {
+            let d = items[c];
+            if (tab === 'tt' && !d.isTT) return;
+            if (tab === 'mt' && !d.isMT) return;
+            
+            if (cusReLocal && !cusReLocal.test(c)) return;
+
+            tableData.push({
+                loc: r.g.loc, sku: r.g.sku, name: r.g.name, line: r.g.line,
+                customerName: c, start: d.start, end: d.end,
+                plan: d.plan, actualCus: d.actualCus, rem: d.plan - d.actualCus
+            });
+        });
+    });
     tableData.sort((a, b) => String(a.customerName).localeCompare(String(b.customerName)));
 
-    let body = '';
+    let tPlan = 0, tActual = 0, tRem = 0; let body = '';
+    let cusData = {}, lineData = {};
+    
     tableData.forEach(d => {
-        tPlan += d.plan;
-        tActual += d.actualCus;
-        tRem += d.rem;
+        tPlan += d.plan; tActual += d.actualCus; tRem += d.rem;
+        
+        if (!cusData[d.customerName]) cusData[d.customerName] = { plan: 0, actual: 0 };
+        cusData[d.customerName].plan += d.plan;
+        cusData[d.customerName].actual += d.actualCus;
+        
+        let l = d.line || 'Khác';
+        if (!lineData[l]) lineData[l] = { plan: 0, actual: 0 };
+        lineData[l].plan += d.plan;
+        lineData[l].actual += d.actualCus;
+        
+        let pct = d.plan > 0 ? (d.actualCus / d.plan) : (d.actualCus > 0 ? 1 : 0);
+        let achieveText = (pct * 100).toFixed(1) + '%';
+        let bg = ''; let color = '#333';
+        if (pct >= 1) { bg = '#d4edda'; color = '#155724'; } 
+        else if (pct >= 0.8) { bg = '#cce5ff'; color = '#004085'; } 
+        else if (pct >= 0.5) { bg = '#fff3cd'; color = '#856404'; } 
+        else { bg = '#f8d7da'; color = '#721c24'; } 
         
         const remHtml = `<td class="n" style="${d.rem < 0 ? 'color:#ea580c; font-weight:bold' : ''}">${fmt(d.rem)}</td>`;
         
         body += `<tr>
             <td>${esc(d.loc)}</td>
             <td>${esc(d.sku)} - ${esc(d.name)}</td>
+            <td>${esc(d.line)}</td>
             <td>${esc(d.customerName)}</td>
             <td class="text-center">${fmtD(d.start)}</td>
             <td class="text-center">${fmtD(d.end)}</td>
             ${num(d.plan)}
             ${num(d.actualCus)}
+            <td class="n" style="background-color:${bg}; color:${color}; font-weight:bold; border-radius: 4px;">${achieveText}</td>
             ${remHtml}
         </tr>`;
     });
 
-    const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
+    const subtext = tt('subtotal');
+    let totalPct = tPlan > 0 ? (tActual / tPlan) : (tActual > 0 ? 1 : 0);
     const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)">
-        <td colspan="5" style="text-align:right">${subtext}</td>
+        <td colspan="6" style="text-align:right">${subtext}</td>
         <td class="n">${fmt(tPlan)}</td>
         <td class="n">${fmt(tActual)}</td>
+        <td class="n">${(totalPct*100).toFixed(1)}%</td>
         <td class="n" style="${tRem < 0 ? 'color:#ea580c' : ''}">${fmt(tRem)}</td>
     </tr>` : '';
 
-    h = `<div class="wrap"><table>
-        <tr>
-            <th>Warehouse</th>
-            <th>Product (SKU - Name)</th>
-            <th>Customer Name</th>
-            <th class="text-center">Starting date</th>
-            <th class="text-center">Ending date</th>
-            <th class="n">Sale Plan</th>
-            <th class="n">Actual</th>
-            <th class="n">Remaining</th>
-        </tr>
-        ${body || `<tr><td colspan="8" class="empty">${tt('empty')}</td></tr>`}
-        ${subRow}
-    </table></div><div class="note" style="margin-top:14px; font-style:italic;">${tt('mtNote')}</div>`;
+    h = `
+    <div class="accordion" id="acc-mt">
+      <div class="accordion-item" style="border:none; margin-bottom:15px; border-radius:var(--border-radius); overflow:hidden; box-shadow:var(--shadow);">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#colOverview" style="background:var(--ac2); color:var(--ac); font-weight:bold;">
+            ${tt('mtOverview')}
+          </button>
+        </h2>
+        <div id="colOverview" class="accordion-collapse collapse show" data-bs-parent="#acc-mt">
+          <div class="accordion-body" style="background:var(--card);">
+             <div class="row">
+                <div class="col-md-6" style="height:450px; min-height:0; position:relative;"><canvas id="mtChartCus"></canvas></div>
+                <div class="col-md-6" style="height:450px; min-height:0; position:relative;"><canvas id="mtChartLine"></canvas></div>
+             </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="accordion-item" style="border:none; border-radius:var(--border-radius); overflow:hidden; box-shadow:var(--shadow);">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#colDetail" style="background:var(--ac2); color:var(--ac); font-weight:bold;">
+            ${tt('mtDetail')}
+          </button>
+        </h2>
+        <div id="colDetail" class="accordion-collapse collapse" data-bs-parent="#acc-mt">
+          <div class="accordion-body p-0">
+             <div class="wrap" style="max-height: 60vh; border-radius:0; box-shadow:none;">
+                <table>
+                    <tr><th>${tt('thWh')}</th><th>${tt('thProd')}</th><th>${tt('thLine')}</th><th>${tt('thCus')}</th><th class="text-center">${tt('thStart')}</th><th class="text-center">${tt('thEnd')}</th><th class="n">${tt('thPlan')}</th><th class="n">${tt('thActual')}</th><th class="n">${tt('pctAchieved')}</th><th class="n">${tt('thRem')}</th></tr>
+                    ${body || `<tr><td colspan="10" class="empty">${tt('empty')}</td></tr>`}
+                    ${subRow}
+                </table>
+             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:14px; font-style:italic;">${tt('mtNote')}</div>`;
+
+    $('#view').innerHTML = '<div class="animated-view">' + h + '</div>';
+
+    setTimeout(() => {
+        if (window.myMtCharts) window.myMtCharts.forEach(c => c.destroy());
+        window.myMtCharts = [];
+        
+        let ctxCus = document.getElementById('mtChartCus');
+        let ctxLine = document.getElementById('mtChartLine');
+        if(!ctxCus || !ctxLine) return;
+
+        let labelsCus = Object.keys(cusData);
+        let actualCusArr = labelsCus.map(k => cusData[k].actual);
+        let remCusArr = labelsCus.map(k => Math.max(0, cusData[k].plan - cusData[k].actual));
+
+        window.myMtCharts.push(new Chart(ctxCus, {
+           type: 'bar',
+           data: {
+              labels: labelsCus,
+              datasets: [
+                 { label: tt('sold'), data: actualCusArr, backgroundColor: '#facc15', borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.9 },
+                 { label: tt('remaining'), data: remCusArr, backgroundColor: '#e2e8f0', borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.9 }
+              ]
+           },
+           options: {
+              indexAxis: 'y', stacked: true, maintainAspectRatio: false,
+              plugins: { 
+                  title: { display: true, text: tt('mtChartCusTitle') }, 
+                  legend: { position: 'bottom'},
+                  tooltip: {
+                      callbacks: {
+                          label: function(c) { return c.dataset.label + ': ' + Math.round(c.raw).toLocaleString('en-US') + ' ' + tt('carton'); }
+                      }
+                  }
+              },
+              scales: { 
+                 x: { title: { display: true, text: tt('qtyCartonsScale') } }, 
+                 y: { stacked: true, ticks: { font: { size: 9 }, autoSkip: false } } 
+              }
+           }
+        }));
+
+        let labelsLine = Object.keys(lineData);
+        let actualLineArr = labelsLine.map(k => lineData[k].actual);
+        let remLineArr = labelsLine.map(k => Math.max(0, lineData[k].plan - lineData[k].actual));
+        
+        window.myMtCharts.push(new Chart(ctxLine, {
+           type: 'bar',
+           data: {
+              labels: labelsLine,
+              datasets: [
+                 { label: tt('sold'), data: actualLineArr, backgroundColor: '#3b82f6', borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.9 },
+                 { label: tt('remaining'), data: remLineArr, backgroundColor: '#e2e8f0', borderRadius: 4, barPercentage: 0.9, categoryPercentage: 0.9 }
+              ]
+           },
+           options: {
+              stacked: true, maintainAspectRatio: false,
+              plugins: { 
+                  title: { display: true, text: tt('mtChartLineTitle') }, 
+                  legend: { position: 'bottom'},
+                  tooltip: {
+                      callbacks: {
+                          label: function(c) { return c.dataset.label + ': ' + Math.round(c.raw).toLocaleString('en-US') + ' ' + tt('carton'); }
+                      }
+                  }
+              },
+              scales: { 
+                 x: { stacked: true, ticks: { font: { size: 10 }, autoSkip: false } }, 
+                 y: { stacked: true, beginAtZero: true } 
+              }
+           }
+        }));
+    }, 150);
   } 
 
   else if (tab === 'inv') {
-    let body = '';
-    let t30 = 0, t50 = 0, t60 = 0, t70 = 0, tgt70 = 0, tTotal = 0;
-    let rowIdx = 0;
+    let body = ''; let t30 = 0, t50 = 0, t60 = 0, t70 = 0, tgt70 = 0, tTotal = 0; let rowIdx = 0;
+    window.chartState = {};
+    if (window.myCharts) { Object.values(window.myCharts).forEach(c => c.destroy()); } window.myCharts = {};
     
     rows.forEach(r => {
-        let b30 = 0, b50 = 0, b60 = 0, b70 = 0, bgt70 = 0;
-        let details = {}; 
+        let b30 = 0, b50 = 0, b60 = 0, b70 = 0, bgt70 = 0; let details = {}; 
+        let lineKey = 'Other'; const rawName = String(r.g.name).toLowerCase();
+        if (rawName.includes('vermicelli') || rawName.includes('double dragon')) lineKey = 'Vermicelli';
+        else if (rawName.includes('mix')) lineKey = 'MIX'; else if (rawName.includes('biteez')) lineKey = 'BiteeZ';
+        else if (rawName.includes('yappy')) lineKey = 'Yappy'; else if (rawName.includes('partee')) lineKey = 'ParteeZ';
         
+        if (lineKey !== 'Vermicelli' && lineKey !== 'Other') {
+            if (!window.chartState[lineKey]) window.chartState[lineKey] = { doughnutData: {b30:0, b50:0, b60:0, b70:0, bgt70:0}, rows: {}, activeRowIdx: null };
+        }
+
         r.invLots.forEach(l => {
             if(l.h == null || l.qty <= 0) return;
-            
-            let dKey = '—';
-            if (l.exp) {
-                const d = new Date(l.exp);
-                dKey = String(d.getUTCMonth() + 1).padStart(2, '0') + '.' + d.getUTCFullYear();
-            }
+            let dKey = '—'; if (l.exp) { const d = new Date(l.exp); dKey = String(d.getUTCMonth() + 1).padStart(2, '0') + '.' + d.getUTCFullYear(); }
             if(!details[dKey]) details[dKey] = { b30:0, b50:0, b60:0, b70:0, bgt70:0 };
-
-            if(l.h < 30) { b30 += l.qty; details[dKey].b30 += l.qty; }
-            else if(l.h < 50) { b50 += l.qty; details[dKey].b50 += l.qty; }
-            else if(l.h < 60) { b60 += l.qty; details[dKey].b60 += l.qty; }
-            else if(l.h <= 70) { b70 += l.qty; details[dKey].b70 += l.qty; }
-            else { bgt70 += l.qty; details[dKey].bgt70 += l.qty; }
+            if(l.h < 30) { b30 += l.qty; details[dKey].b30 += l.qty; if(window.chartState[lineKey]) window.chartState[lineKey].doughnutData.b30 += l.qty; }
+            else if(l.h < 50) { b50 += l.qty; details[dKey].b50 += l.qty; if(window.chartState[lineKey]) window.chartState[lineKey].doughnutData.b50 += l.qty; }
+            else if(l.h < 60) { b60 += l.qty; details[dKey].b60 += l.qty; if(window.chartState[lineKey]) window.chartState[lineKey].doughnutData.b60 += l.qty; }
+            else if(l.h <= 70) { b70 += l.qty; details[dKey].b70 += l.qty; if(window.chartState[lineKey]) window.chartState[lineKey].doughnutData.b70 += l.qty; }
+            else { bgt70 += l.qty; details[dKey].bgt70 += l.qty; if(window.chartState[lineKey]) window.chartState[lineKey].doughnutData.bgt70 += l.qty; }
         });
 
         const rTotal = b30 + b50 + b60 + b70 + bgt70;
-        
         if(rTotal > 0) {
-            t30 += b30;
-            t50 += b50;
-            t60 += b60;
-            t70 += b70;
-            tgt70 += bgt70;
-            tTotal += rTotal;
-            rowIdx++;
+            t30 += b30; t50 += b50; t60 += b60; t70 += b70; tgt70 += bgt70; tTotal += rTotal; rowIdx++;
+            const detailKeys = Object.keys(details).sort((a,b) => { if (a === '—') return 1; if (b === '—') return -1; const [ma, ya] = a.split('.'); const [mb, yb] = b.split('.'); return (ya - yb) || (ma - mb); });
             
-            const detailKeys = Object.keys(details).sort((a,b) => {
-                if (a === '—') return 1; if (b === '—') return -1;
-                const [ma, ya] = a.split('.'); const [mb, yb] = b.split('.');
-                return (ya - yb) || (ma - mb);
-            });
-            
+            if (window.chartState[lineKey]) {
+                let expMonthsData = [];
+                detailKeys.forEach(mKey => {
+                    if (mKey !== '—') {
+                        let [mStr, yStr] = mKey.split('.'); let expM = parseInt(mStr), expY = parseInt(yStr); let diff = (expY - CURRENT_YEAR) * 12 + (expM - M);
+                        let dVals = details[mKey]; let qty = dVals.b30 + dVals.b50 + dVals.b60 + dVals.b70 + dVals.bgt70;
+                        let maxVal = Math.max(dVals.b30, dVals.b50, dVals.b60, dVals.b70, dVals.bgt70);
+                        let colColor = '#0dcaf0';
+                        if (maxVal === dVals.b30 && maxVal > 0) colColor = '#d9232d'; else if (maxVal === dVals.b50 && maxVal > 0) colColor = '#fd7e14';
+                        else if (maxVal === dVals.b60 && maxVal > 0) colColor = '#ffc107'; else if (maxVal === dVals.b70 && maxVal > 0) colColor = '#28a745';
+                        else if (maxVal === dVals.bgt70 && maxVal > 0) colColor = '#20c997';
+                        expMonthsData.push({ date: mKey, diff: diff, qty: qty, color: colColor });
+                    }
+                });
+                window.chartState[lineKey].rows[rowIdx] = { sku: r.g.sku, name: r.g.name, lots: expMonthsData };
+            }
             const hasDetails = detailKeys.length > 0;
-            const btnHtml = hasDetails ? `<button type="button" class="acc-btn" onclick="document.querySelectorAll('.subrow-${rowIdx}').forEach(e => e.hidden = !e.hidden); this.textContent = this.textContent === '[+]' ? '[-]' : '[+]';">[+]</button>` : '';
+            const btnHtml = hasDetails ? `<button type="button" class="acc-btn" onclick="window.toggleRow(this, ${rowIdx}, '${lineKey}')">[+]</button>` : '';
             
-            body += `<tr>
-                <td>${esc(r.g.loc)}</td>
-                <td>${esc(r.g.sku)}</td>
-                <td>${btnHtml}${esc(r.g.name)}</td>
-                <td class="n">${b30 > 0 ? fmt(b30) : ''}</td>
-                <td class="n">${b50 > 0 ? fmt(b50) : ''}</td>
-                <td class="n">${b60 > 0 ? fmt(b60) : ''}</td>
-                <td class="n">${b70 > 0 ? fmt(b70) : ''}</td>
-                <td class="n">${bgt70 > 0 ? fmt(bgt70) : ''}</td>
-                <td class="n" style="font-weight:bold; background:#f0f3f2">${fmt(rTotal)}</td>
-            </tr>`;
-            
+            body += `<tr><td>${esc(r.g.loc)}</td><td>${esc(r.g.sku)}</td><td>${btnHtml}${esc(r.g.name)}</td><td class="n">${b30 > 0 ? fmt(b30) : ''}</td><td class="n">${b50 > 0 ? fmt(b50) : ''}</td><td class="n">${b60 > 0 ? fmt(b60) : ''}</td><td class="n">${b70 > 0 ? fmt(b70) : ''}</td><td class="n">${bgt70 > 0 ? fmt(bgt70) : ''}</td><td class="n" style="font-weight:bold; background:#f0f3f2">${fmt(rTotal)}</td></tr>`;
             if(hasDetails) {
                 detailKeys.forEach(mKey => {
-                    const dVals = details[mKey];
-                    const dTotal = dVals.b30 + dVals.b50 + dVals.b60 + dVals.b70 + dVals.bgt70;
+                    const dVals = details[mKey]; const dTotal = dVals.b30 + dVals.b50 + dVals.b60 + dVals.b70 + dVals.bgt70;
                     if(dTotal > 0) {
-                        body += `<tr class="subrow-${rowIdx}" hidden style="background:var(--ac2); font-size:0.95em;">
-                            <td></td>
-                            <td></td>
-                            <td style="padding-left: 28px; color:var(--mut)">&#8627; Date: <b style="color:var(--fg)">${mKey}</b></td>
-                            <td class="n">${dVals.b30 > 0 ? fmt(dVals.b30) : ''}</td>
-                            <td class="n">${dVals.b50 > 0 ? fmt(dVals.b50) : ''}</td>
-                            <td class="n">${dVals.b60 > 0 ? fmt(dVals.b60) : ''}</td>
-                            <td class="n">${dVals.b70 > 0 ? fmt(dVals.b70) : ''}</td>
-                            <td class="n">${dVals.bgt70 > 0 ? fmt(dVals.bgt70) : ''}</td>
-                            <td class="n" style="font-weight:bold">${fmt(dTotal)}</td>
-                        </tr>`;
+                        body += `<tr class="subrow-${rowIdx}" hidden style="background:var(--ac2); font-size:0.95em;"><td></td><td></td><td style="padding-left: 28px; color:var(--mut)">&#8627; ${tt('date')}: <b style="color:var(--fg)">${mKey}</b></td><td class="n">${dVals.b30 > 0 ? fmt(dVals.b30) : ''}</td><td class="n">${dVals.b50 > 0 ? fmt(dVals.b50) : ''}</td><td class="n">${dVals.b60 > 0 ? fmt(dVals.b60) : ''}</td><td class="n">${dVals.b70 > 0 ? fmt(dVals.b70) : ''}</td><td class="n">${dVals.bgt70 > 0 ? fmt(dVals.bgt70) : ''}</td><td class="n" style="font-weight:bold">${fmt(dTotal)}</td></tr>`;
                     }
                 });
             }
         }
     });
 
-    const subtext = lang === 'vi' ? 'TỔNG CỘNG' : 'SUBTOTAL';
-    const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)">
-        <td colspan="3" style="text-align:right">${subtext}</td>
-        <td class="n">${t30 > 0 ? fmt(t30) : ''}</td>
-        <td class="n">${t50 > 0 ? fmt(t50) : ''}</td>
-        <td class="n">${t60 > 0 ? fmt(t60) : ''}</td>
-        <td class="n">${t70 > 0 ? fmt(t70) : ''}</td>
-        <td class="n">${tgt70 > 0 ? fmt(tgt70) : ''}</td>
-        <td class="n" style="background:#d7dfdc">${tTotal > 0 ? fmt(tTotal) : ''}</td>
-    </tr>` : '';
+    const subtext = tt('subtotal');
+    const subRow = body ? `<tr style="font-weight:bold;background:var(--ac2);position:sticky;bottom:0;z-index:1;box-shadow:0 -1px 0 var(--line)"><td colspan="3" style="text-align:right">${subtext}</td><td class="n">${t30 > 0 ? fmt(t30) : ''}</td><td class="n">${t50 > 0 ? fmt(t50) : ''}</td><td class="n">${t60 > 0 ? fmt(t60) : ''}</td><td class="n">${t70 > 0 ? fmt(t70) : ''}</td><td class="n">${tgt70 > 0 ? fmt(tgt70) : ''}</td><td class="n" style="background:#d7dfdc">${tTotal > 0 ? fmt(tTotal) : ''}</td></tr>` : '';
 
-    h = `<div class="wrap"><table>
-        <tr>
-            <th>Warehouse</th>
-            <th>Product Code</th>
-            <th>Product Name</th>
-            <th class="text-center hsd-30">&lt;30%</th>
-            <th class="text-center hsd-50">30-50%</th>
-            <th class="text-center hsd-60">50-60%</th>
-            <th class="text-center hsd-70">60-70%</th>
-            <th class="text-center hsd-gt70">&gt;70%</th>
-            <th class="text-center hsd-total">Total</th>
-        </tr>
-        ${body || `<tr><td colspan="9" class="empty">${tt('empty')}</td></tr>`}
-        ${subRow}
-    </table></div>`;
+    let validKeys = Object.keys(window.chartState).filter(k => { let d = window.chartState[k].doughnutData; return (d.b30 + d.b50 + d.b60 + d.b70 + d.bgt70) > 0; });
+    let chartHtml = `<div class="chart-grid ${validKeys.length === 1 ? 'single-chart' : ''}">`;
+    validKeys.forEach((k, idx) => { window.chartState[k].idx = idx; chartHtml += `<div class="chart-wrapper"><strong style="font-size:14px;text-transform:uppercase;color:var(--fg); margin-bottom: 10px;">${k}</strong><div class="canvas-container"><canvas id="donutChart${idx}"></canvas></div></div>`; });
+    chartHtml += `</div>`;
+
+    h = `
+    <div class="inv-layout">
+        <div class="inv-table-col"><div class="wrap"><table>
+            <tr><th>WH</th><th>Pd Code</th><th>Pd Name</th><th class="text-center hsd-30">&lt;30%</th><th class="text-center hsd-50">30-50%</th><th class="text-center hsd-60">50-60%</th><th class="text-center hsd-70">60-70%</th><th class="text-center hsd-gt70">&gt;70%</th><th class="text-center hsd-total">${tt('thTotal')}</th></tr>
+            ${body || `<tr><td colspan="9" class="empty">${tt('empty')}</td></tr>`}
+            ${subRow}
+        </table></div></div>
+        <div class="inv-chart-col">${chartHtml}</div>
+    </div>`;
+
+    $('#view').innerHTML = '<div class="animated-view">' + h + '</div>';
+    setTimeout(() => { validKeys.forEach(k => { window.drawChart(k); }); }, 100); return;
   }
   
   else {
-    let noteHTML = `
-      <div class="note" style="margin-top:16px; padding:16px; background:var(--card); border:1px solid var(--line); border-radius:8px; line-height:1.6; color:var(--fg)">
-        <strong style="display:block; margin-bottom:8px;">Về trường hợp Tồn kho thực tế (on hand) lệch so với Tồn cuối kỳ trước:</strong>
-        <ul style="margin:0; padding-left:20px;">
-          <li style="margin-bottom:6px;"><strong>Trong thực tế vận hành:</strong> Sự chênh lệch này thường do các nguyên nhân như hao hụt, hàng hỏng/vỡ, xuất/nhập nhầm, hoặc độ trễ trong việc ghi nhận lên hệ thống ERP (QAD). Đội ngũ kho và chuỗi cung ứng cần kiểm kê lại (Cycle Count hoặc Physical Count) để tìm nguyên nhân và thực hiện bút toán điều chỉnh (Inventory Adjustment) trên QAD.</li>
-          <li><strong>Trong công cụ báo cáo này:</strong> File on hand được xem là nguồn sự thật tuyệt đối (Source of Truth) tại thời điểm báo cáo. Hệ thống sẽ luôn lấy số liệu Tồn kho thực tế trong on hand làm Tồn Đầu Kỳ (Opening Stock) của kỳ tính toán hiện tại, bất kể kỳ trước hệ thống tính toán ra lý thuyết là bao nhiêu. Điều này đảm bảo kế hoạch bán hàng và cảnh báo HSD luôn được tính trên số hàng thực sự đang nằm trong kho.</li>
-        </ul>
-      </div>`;
+    let noteHTML = `<div class="note" style="margin-top:16px; padding:16px; background:var(--card); border:1px solid var(--line); border-radius:var(--border-radius); line-height:1.6; color:var(--fg)">${tt('logicNote')}</div>`;
+    
+    const logicData = HARDCODED_LOGIC.map(item => {
+        return { id: item.id, ...item[lang] };
+    });
 
-    if (LOGIC_RULES && LOGIC_RULES.length > 0) {
-        const keys = Object.keys(LOGIC_RULES[0]);
-        h = `<div class="wrap"><table>
-            <tr>${keys.map(k => `<th>${esc(k)}</th>`).join('')}</tr>
-            ${LOGIC_RULES.map(r => `<tr>${keys.map((k, i) => {
-                let val = r[k];
-                if (i === 0 && ST[val]) return `<td>${badge(val)}</td>`;
-                return `<td style="white-space:normal;min-width:180px">${esc(val).replace(/\n/g,'<br>')}</td>`;
-            }).join('')}</tr>`).join('')}
-        </table></div>` + noteHTML;
-    } else {
-        h = `<div class="empty">${tt('empty')} (Chưa có dữ liệu từ bảng Logic)</div>` + noteHTML;
-    }
+    h = `<div class="wrap"><table>
+        <tr><th>${esc(tt('warn'))}</th><th>${esc(tt('cond'))}</th><th>${esc(tt('risk'))}</th><th>${esc(tt('act'))}</th></tr>
+        ${logicData.map(r => `<tr>
+            <td>${badge(r.id)}</td>
+            <td style="white-space:normal;min-width:180px">${esc(r.cond).replace(/\\n/g,'<br>')}</td>
+            <td style="white-space:normal;min-width:180px">${esc(r.risk).replace(/\\n/g,'<br>')}</td>
+            <td style="white-space:normal;min-width:220px">${esc(r.act).replace(/\\n/g,'<br>')}</td>
+        </tr>`).join('')}
+    </table></div>` + noteHTML;
   }
-  
-  $('#view').innerHTML = h;
+  $('#view').innerHTML = '<div class="animated-view">' + h + '</div>';
 }
 
 /* ============ KHỞI TẠO GIAO DIỆN & TẢI DỮ LIỆU ============ */
 function setLang(l) {
   lang = l; 
-  $('#lvi').classList.toggle('on', l === 'vi'); 
-  $('#len').classList.toggle('on', l === 'en'); $$('[data-t]').forEach(e => e.textContent = tt(e.dataset.t));$('#ttl').textContent = tt('ttl'); document.title = tt('ttl');
-  $('#btnOut').textContent = tt('out'); $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
+  $('#lvi').classList.toggle('on', l === 'vi'); $('#len').classList.toggle('on', l === 'en'); 
+  
+  $$('[data-t]').forEach(e => {
+    if (e.tagName === 'INPUT' && e.hasAttribute('placeholder')) {
+        e.placeholder = tt(e.dataset.t);
+    } else {
+        e.innerHTML = tt(e.dataset.t);
+    }
+  });
+  
+  $('#ttl').textContent = tt('ttl'); 
+  document.title = tt('ttl');
+  $('#btnOut').textContent = tt('out'); 
+  $('#btnAddFolder').title = tt('addDate');
+  
+  $('#fProd').placeholder = l === 'vi' ? 'Gõ tên SP...' : 'Type product name...';
+  $('#fCus').placeholder = l === 'vi' ? 'Gõ tên khách...' : 'Type customer name...';
+  $('#em').placeholder = l === 'vi' ? 'Email' : 'Email';
+  $('#pw').placeholder = l === 'vi' ? 'Mật khẩu' : 'Password';
+
+  let activeSels = $$('.folder-sel');
+  activeSels.forEach(sel => {
+    let firstOpt = sel.querySelector('option[value=""]');
+    if (firstOpt) firstOpt.textContent = '-- ' + tt('selDatePlaceholder') + ' --';
+  });
+
+  $$('.tabs button').forEach(b => { b.textContent = tt(b.dataset.tab); b.classList.toggle('on', b.dataset.tab === tab); });
+  updateTabSlider();
   if(DB) { fillFilters(); render(); }
 }
 
 function fillFilters() {
   const curL = $('#fLine').value;
-  // ĐÃ SỬA: Bổ sung thêm ['vermicelli', 0] và nhãn 'Vermicelli' vào list dropdown
   $('#fLine').innerHTML = [['ALL', 'all'], ['mix', 0], ['biteez', 0], ['yappy', 0], ['partee', 0], ['vermicelli', 0]].map(([v, k], i) => `<option value="${v}">${k ? tt('all') : ['', 'MIX', 'BiteeZ', 'Yappy', 'ParteeZ', 'Vermicelli'][i]}</option>`).join('');
   if (curL) $('#fLine').value = curL;
-  const curLoc = $('#fLoc').value || 'ALL';
-  $('#fLoc').innerHTML = `<option value="ALL">${tt('all')}</option><option value="South">South</option><option value="North">North</option>`;
-  $('#fLoc').value = curLoc;
+  const curLoc = $('#fLoc').value || 'ALL'; $('#fLoc').innerHTML = `<option value="ALL">${tt('all')}</option><option value="South">South</option><option value="North">North</option>`; $('#fLoc').value = curLoc;
   fillMonthDropdown(); fillWarn();
 }
-function fillMonthDropdown() {
-  const curM = $('#fMonth').value;
-  $('#fMonth').innerHTML = CFG.months.map(m => `<option value="${m}">${tt('mon')} ${m} (${MN[m - 1].replace(/^./, c => c.toUpperCase())})</option>`).join('');
-  if (curM && CFG.months.includes(+curM)) $('#fMonth').value = curM;
-}
-function fillWarn() {
-  const cur = $('#fWarn').value || 'ALL';
-  $('#fWarn').innerHTML = `<option value="ALL">${tt('all')}</option>` + Object.keys(ST).filter(k=>k!=='EMPTY').map(k => `<option value="${k}">${ST[k][lang === 'vi' ? 0 : 1]}</option>`).join('');
-  $('#fWarn').value = cur;
-}
+function fillMonthDropdown() { const curM = $('#fMonth').value; $('#fMonth').innerHTML = CFG.months.map(m => `<option value="${m}">${tt('mon')} ${m} (${MN[m - 1].replace(/^./, c => c.toUpperCase())})</option>`).join(''); if (curM && CFG.months.includes(+curM)) $('#fMonth').value = curM; }
+function fillWarn() { const cur = $('#fWarn').value || 'ALL'; $('#fWarn').innerHTML = `<option value="ALL">${tt('all')}</option>` + Object.keys(ST).filter(k=>k!=='EMPTY').map(k => `<option value="${k}">${ST[k][lang === 'vi' ? 0 : 1]}</option>`).join(''); $('#fWarn').value = cur; }
 
 const cache = {};
 async function readXlsx(folder, file) {
-  const path = `${folder}/${file}`;
-  if (cache[path]) return cache[path];
+  const path = `${folder}/${file}`; if (cache[path]) return cache[path];
   const { data, error } = await sb.storage.from(CFG.bucket).download(path);
   if (error) throw new Error(path + ': ' + error.message);
   const wb = XLSX.read(await data.arrayBuffer(), { type: 'array', cellDates: true });
@@ -821,120 +1147,49 @@ async function login() {
     sb = sb || supabase.createClient(CFG.url, CFG.key);
     const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
     if (error) throw error;
-    
-    $('#login').hidden = true; 
-    $('#app').hidden = false;
-    setLang(lang);
-    $('#dataStatus').textContent = tt('loadingFolders');
-    $('#view').innerHTML = `<div class="empty">${tt('empty')}</div>`;
+    $('#login').hidden = true; $('#app').hidden = false; 
+    document.body.classList.add('logged-in');
+    setLang(lang); $('#dataStatus').textContent = tt('loadingFolders'); $('#view').innerHTML = `<div class="empty">${tt('empty')}</div>`;
 
     const { data: list, err } = await sb.storage.from(CFG.bucket).list('', { limit: 1000 });
     if (err) throw new Error('Không lấy được danh sách: ' + err.message);
-
-    ALL_FOLDERS = (list || []).map(i => {
-      const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
-      if (m) {
-        const d = +m[1], mo = +m[2], y = +m[3];
-        return { name: i.name, d, m: mo, y, isEOM: d === new Date(y, mo, 0).getDate() };
-      }
-      return null;
-    }).filter(Boolean).sort((a, b) => b.y - a.y || b.m - a.m || b.d - a.d);
-
-    $('#dataStatus').textContent = '';
-    addFolderSelect(); 
+    ALL_FOLDERS = (list || []).map(i => { const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (m) return { name: i.name, d: +m[1], m: +m[2], y: +m[3], isEOM: +m[1] === new Date(+m[3], +m[2], 0).getDate() }; return null; }).filter(Boolean).sort((a, b) => b.y - a.y || b.m - a.m || b.d - a.d);
+    $('#dataStatus').textContent = ''; addFolderSelect(); 
   } catch (e) { $('#loginErr').textContent = tt('lerr') + (e.message || e); }
 }
 
-function addFolderSelect() {
-  const sel = document.createElement('select');
-  sel.className = 'folder-sel';
-  sel.innerHTML = '<option value="">-- Chọn ngày --</option>' + ALL_FOLDERS.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
-  $('#folder-container').appendChild(sel); }  async function confirmLoadData() { const sels = $$('.folder-sel').map(s => s.value).filter(Boolean);
-  if (!sels.length) return alert(tt('reqErr'));
-  
+function addFolderSelect() { const sel = document.createElement('select'); sel.className = 'folder-sel'; sel.innerHTML = `<option value="">-- ${tt('selDatePlaceholder')} --</option>` + ALL_FOLDERS.map(f => `<option value="${f.name}">${f.name}</option>`).join(''); $('#folder-container').appendChild(sel); }  
+
+async function confirmLoadData() { 
+  const sels = $$('.folder-sel').map(s => s.value).filter(Boolean); if (!sels.length) return alert(tt('reqErr'));
   const selected = sels.map(name => ALL_FOLDERS.find(f => f.name === name));
-  
-  const monthKeys = selected.map(f => `${f.m}-${f.y}`);
-  if (new Set(monthKeys).size !== monthKeys.length) return alert(tt('dupErr'));
-  
-  SELECTED_FOLDERS = selected;
-  $('#dataStatus').textContent = tt('wait');
+  const monthKeys = selected.map(f => `${f.m}-${f.y}`); if (new Set(monthKeys).size !== monthKeys.length) return alert(tt('dupErr'));
+  SELECTED_FOLDERS = selected; $('#dataStatus').textContent = tt('wait');
   
   try {
     const sorted = [...selected].sort((a, b) => a.y - b.y || a.m - b.m || a.d - b.d);
-    const base = sorted[0]; 
-    const latest = sorted[sorted.length - 1]; 
-    
+    const base = sorted[0], latest = sorted[sorted.length - 1]; 
     const res = await fetch(CFG.planUrl, { redirect: 'follow' });
-    if (res.ok) {
-      const j = await res.json();
-      cache['api_plan'] = j['Sales plan'] || []; 
-      cache['api_unit'] = j['unit'] || []; 
-      cache['api_sku'] = j['sku'] || [];
-      cache['api_custype'] = j['custype'] || []; 
-      cache['api_logic'] = j['Logic'] || []; 
-    }
-    
+    if (res.ok) { const j = await res.json(); cache['api_plan'] = j['Sales plan']||[]; cache['api_unit'] = j['unit']||[]; cache['api_sku'] = j['sku']||[]; cache['api_custype'] = j['custype']||[]; cache['api_logic'] = j['Logic']||[]; }
     LOGIC_RULES = cache['api_logic'] || [];
-
     const [master, onhand, transit] = await Promise.all(['master', 'onhand', 'transit'].map(k => readXlsx(base.name, CFG.files[k]).catch(()=>[])));
-    
-    const latestQad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]);
-    let allQadData = [...latestQad];
-    
+    const latestQad = await readXlsx(latest.name, CFG.files.qad).catch(()=>[]); let allQadData = [...latestQad];
     const presentMonths = new Set();
-    latestQad.forEach(r => {
-        const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i));
-        if (t) {
-            const d = new Date(t);
-            presentMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`);
-        }
-    });
-
+    latestQad.forEach(r => { const t = parseExcelDate(r['Invoice Date'] ?? pick(r, /invoice.*date|ngày/i)); if (t) { const d = new Date(t); presentMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); } });
     const neededMonths = new Set();
-    (cache['api_plan'] || []).forEach(p => {
-        const sd = parseExcelDate(p['Starting date'] ?? pick(p, /start|bắt/i));
-        const ed = parseExcelDate(p['Ending date'] ?? pick(p, /end|kết/i));
-        if (sd) { const d = new Date(sd); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); }
-        if (ed) { const d = new Date(ed); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); }
-    });
-
+    (cache['api_plan'] || []).forEach(p => { const sd = parseExcelDate(p['Starting date'] ?? pick(p, /start|bắt/i)); const ed = parseExcelDate(p['Ending date'] ?? pick(p, /end|kết/i)); if (sd) { const d = new Date(sd); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); } if (ed) { const d = new Date(ed); neededMonths.add(`${d.getUTCMonth()+1}-${d.getUTCFullYear()}`); } });
     const extraPromises = [];
     for (const mKey of neededMonths) {
         if (!presentMonths.has(mKey)) {
-            const [mStr, yStr] = mKey.split('-');
-            const m = +mStr, y = +yStr;
-            const folder = ALL_FOLDERS.find(f => f.m === m && f.y === y && f.isEOM) || ALL_FOLDERS.find(f => f.m === m && f.y === y);
-            if (folder) {
-                presentMonths.add(mKey); 
-                extraPromises.push(readXlsx(folder.name, CFG.files.qad).catch(()=>[]));
-            }
+            const [mStr, yStr] = mKey.split('-'); const m = +mStr, y = +yStr; const folder = ALL_FOLDERS.find(f => f.m === m && f.y === y && f.isEOM) || ALL_FOLDERS.find(f => f.m === m && f.y === y);
+            if (folder) { presentMonths.add(mKey); extraPromises.push(readXlsx(folder.name, CFG.files.qad).catch(()=>[])); }
         }
     }
-    
-    if (extraPromises.length > 0) {
-        const extraQads = await Promise.all(extraPromises);
-        extraQads.forEach(eq => allQadData = allQadData.concat(eq));
-    }
-    
-    const years = [...new Set(selected.map(f => f.y))].sort((a,b)=>b-a);
-    $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
-    CURRENT_YEAR = years[0] || CFG.year;
-    
-    DB = normalize({ 
-        master, onhand, transit, qad: allQadData, 
-        plan: cache['api_plan'] || [], 
-        unit: cache['api_unit'] || [], 
-        sku: cache['api_sku'] || [],
-        custype: cache['api_custype'] || []
-    });
-    
-    $('#dataStatus').textContent = tt('loaded');
-    
-    fillFilters(); render();
-  } catch (e) {
-    $('#dataStatus').textContent = 'Lỗi: ' + e.message;
-  }
+    if (extraPromises.length > 0) { const extraQads = await Promise.all(extraPromises); extraQads.forEach(eq => allQadData = allQadData.concat(eq)); }
+    const years = [...new Set(selected.map(f => f.y))].sort((a,b)=>b-a); $('#fYear').innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join(''); CURRENT_YEAR = years[0] || CFG.year;
+    DB = normalize({ master, onhand, transit, qad: allQadData, plan: cache['api_plan']||[], unit: cache['api_unit']||[], sku: cache['api_sku']||[], custype: cache['api_custype']||[] });
+    $('#dataStatus').textContent = tt('loaded'); fillFilters(); render();
+  } catch (e) { $('#dataStatus').textContent = 'Lỗi: ' + e.message; }
 }
 
 /* ============ SỰ KIỆN ============ */
@@ -942,16 +1197,11 @@ $('#btnLogin').onclick = login;
 $('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
 $('#btnOut').onclick = async () => { try { await sb?.auth.signOut(); } catch (e) {} location.reload(); };
 $('#lvi').onclick = () => setLang('vi'); $('#len').onclick = () => setLang('en');
-$('#btnAddFolder').onclick = addFolderSelect;
-$('#btnLoadData').onclick = confirmLoadData;
+$('#btnAddFolder').onclick = addFolderSelect; $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
-$('#fProd').oninput = render;
-$('#fCus').oninput = render; // Gắn sự kiện để render lại bảng khi gõ filter tên khách hàng
+$('#fProd').oninput = render; $('#fCus').oninput = render; 
 ['#fLoc', '#fLine', '#fMonth', '#fWarn'].forEach(s => $(s).onchange = render);
-$$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; $$
-('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab));
-  render(); 
-});  
+$$('.tabs button').forEach(b => b.onclick = () => { tab = b.dataset.tab; $$('.tabs button').forEach(btn => btn.classList.toggle('on', btn.dataset.tab === tab)); updateTabSlider(); render(); });  
 </script>
 </body>
 </html>
