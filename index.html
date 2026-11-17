@@ -307,14 +307,14 @@ const T = {
   mtOverview: 'Tổng quan tiến độ bán hàng', mtDetail: 'Xem chi tiết',
   mtChartCusTitle: 'Tổng quan theo Khách hàng (Thùng)', mtChartLineTitle: 'Tiến độ theo Ngành hàng',
   sold: 'Đã bán', remaining: 'Còn lại', pctAchieved: '% Đạt',
-  thWh: 'Kho', thProd: 'Sản phẩm (SKU - Tên)', thLine: 'Ngành hàng', thCus: 'Tên Khách hàng', thStart: 'Ngày bắt đầu', thEnd: 'Ngày kết thúc', thPlan: 'Sales plan', thActual: 'Thực tế', thRem: 'Còn lại', thTotal: 'Tổng cộng',
+  thWh: 'Kho', thProd: 'Sản phẩm (SKU - Tên)', thLine: 'Ngành hàng', thCus: 'Tên Khách hàng', thStart: 'Ngày bắt đầu', thEnd: 'Ngày kết thúc', thPlan: 'KH Bán hàng', thActual: 'Thực tế', thRem: 'Còn lại', thTotal: 'Tổng cộng',
   logicNote: '<strong style="display:block; margin-bottom:8px;">Về trường hợp Tồn kho thực tế (on hand) lệch so với Tồn cuối kỳ trước:</strong><ul style="margin:0; padding-left:20px;"><li style="margin-bottom:6px;"><strong>Trong thực tế vận hành:</strong> Sự chênh lệch này thường do các nguyên nhân như hao hụt, hàng hỏng/vỡ, xuất/nhập nhầm... Cần kiểm kê lại để tìm nguyên nhân và thực hiện bút toán điều chỉnh.</li><li><strong>Trong công cụ báo cáo này:</strong> File on hand được xem là nguồn sự thật tuyệt đối (Source of Truth) tại thời điểm báo cáo...</li></ul>',
   remMonths: 'Số tháng còn lại', qtyCartons: 'Số lượng thùng', qtyCartonsScale: 'Số lượng (thùng)', monthsUse: 'Số tháng SD', carton: 'thùng', subtotal: 'TỔNG CỘNG', date: 'Date'
  },
  en: {
-  ttl: 'Inventory Summary Report', selDate: 'Select date:', loadData: 'Load Data', year: 'Report year', line: 'Filter line', prod: 'Product name', cus: 'Customer name', month: 'Report month', warn: 'Warning', all: 'All',
+  ttl: 'Inventory Summary Report', selDate: 'Select date:', loadData: 'Load Data', year: 'Report year', line: 'Filter line', prod: 'Filter product name', cus: 'Filter customer', month: 'Report month', warn: 'Warning', all: 'All',
   sum: 'Form sum', det: 'Form detail', mt: 'Follow MT', tt: 'Follow TT', inv: 'Current inventory', logic: 'Logic',
-  out: 'Log out', loc: 'WH', sku: 'SKU', prodT: 'Product', lineC: 'Line', begin: 'Opening stock', tr: 'In transit', so: 'Sell out', end: 'Ending inventory', cov: 'Coverday',
+  out: 'Log out', loc: 'Warehouse', sku: 'SKU', prodT: 'Product', lineC: 'Line', begin: 'Opening stock', tr: 'In transit', so: 'Sell out', end: 'Ending inventory', cov: 'Coverday',
   st: 'Status', lot: 'Status lot', skuSt: 'Status', mnf: 'MNF', exp: 'EXP', hsd: '% Shelf-life', qty: 'Lot ending', empty: 'No data',
   mon: 'Month', cond: 'Logic Condition', risk: 'Risk Details', act: 'Action', note: 'Note', wait: 'Please wait...', reqErr: 'Please select at least 1 date!', dupErr: 'Cannot select multiple dates in same month!', loaded: 'Data loaded successfully!',
   loadingFolders: 'Fetching dates...', lerr: 'Login failed: ', est: 'Estimated EXP',
@@ -326,7 +326,7 @@ const T = {
   mtOverview: 'Sales Progress Overview', mtDetail: 'View details',
   mtChartCusTitle: 'Overview by Customer (Cartons)', mtChartLineTitle: 'Progress by Line',
   sold: 'Sold', remaining: 'Remaining', pctAchieved: '% Achieved',
-  thWh: 'WH', thProd: 'Product (SKU - Name)', thLine: 'Line', thCus: 'Customer Name', thStart: 'Start date', thEnd: 'End date', thPlan: 'Sale Plan', thActual: 'Actual', thRem: 'Remaining', thTotal: 'Total',
+  thWh: 'Warehouse', thProd: 'Product (SKU - Name)', thLine: 'Line', thCus: 'Customer Name', thStart: 'Start date', thEnd: 'End date', thPlan: 'Sale Plan', thActual: 'Actual', thRem: 'Remaining', thTotal: 'Total',
   logicNote: '<strong style="display:block; margin-bottom:8px;">Regarding the case where actual inventory (on hand) deviates from the previous Ending Inventory:</strong><ul style="margin:0; padding-left:20px;"><li style="margin-bottom:6px;"><strong>In actual operations:</strong> This discrepancy is usually due to shrinkage, damaged/broken goods, wrong import/export... Inventory count is needed to find the root cause and make adjustment entries.</li><li><strong>In this reporting tool:</strong> The on hand file is considered the Single Source of Truth at the time of reporting...</li></ul>',
   remMonths: 'Remaining months', qtyCartons: 'Carton quantity', qtyCartonsScale: 'Quantity (cartons)', monthsUse: 'Shelf life (months)', carton: 'cartons', subtotal: 'SUBTOTAL', date: 'Date'
  }
@@ -411,9 +411,21 @@ function parseDirectShelfLife(v) {
 
 function normLoc(v) {
   const s = String(v ?? '').trim().toLowerCase();
-  if (s === '11001' || s === 'hcmc' || s === 'south') return 'South';
-  if (s === '15001' || s === 'hanoi' || s === 'north') return 'North';
+  if (['11001', 'hcmc', 'hcm', 'south', 'miền nam', 'mn', 'ho chi minh', 'hồ chí minh'].includes(s)) return 'South';
+  if (['15001', 'hanoi', 'hn', 'north', 'miền bắc', 'mb', 'ha noi', 'hà nội'].includes(s)) return 'North';
   return String(v ?? '').trim();
+}
+
+function getLoc(r) {
+  let loc = r["Warehouse"] ?? r["Location"] ?? r["HQ"] ?? pick(r, /warehouse|location|kho|vùng|miền|branch|region|loc|hq/i);
+  if (!loc || String(loc).trim() === "") {
+    const val = Object.values(r).find(v => {
+      const s = String(v ?? "").trim().toLowerCase();
+      return ["11001", "hcmc", "hcm", "south", "miền nam", "mn", "15001", "hanoi", "hn", "north", "miền bắc", "mb"].includes(s);
+    });
+    if (val) loc = val;
+  }
+  return normLoc(loc);
 }
 const cleanSku = v => String(v ?? '').trim().replace(/-01$/, '');
 const skipSku = s => { if (!s) return true; const up = String(s).toUpperCase(); return up.startsWith('CKCT') || up.startsWith('MD') || up.startsWith('QD'); };
@@ -462,7 +474,7 @@ function normalize(raw) {
 
   raw.onhand.forEach(r => {
     const sku = cleanSku(r['SKU_Code'] ?? r['SKU Code'] ?? pick(r, /sku/i));
-    const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
+    const loc = getLoc(r);
     const qty = +(r['Q.ty On-Hand'] ?? r['Qty On-Hand'] ?? r['Qty On Hand'] ?? pick(r, /qty|on.*hand|tồn/i)) || 0;
     
     if (skipSku(sku) || !qty) return;
@@ -478,7 +490,7 @@ function normalize(raw) {
 
   raw.transit.forEach(r => {
     const sku = cleanSku(r['Item Code_QAD'] ?? pick(r, /item.*code|sku/i));
-    const loc = normLoc(r['Location'] ?? pick(r, /location|kho/i));
+    const loc = getLoc(r);
     const qty = +(r['In transit_Qty'] ?? pick(r, /transit|số lượng|qty/i)) || 0;
     const eta = parseExcelDate(r['ETA_Date'] ?? pick(r, /eta/i));
     if (skipSku(sku) || !qty || !eta) return;
@@ -496,7 +508,7 @@ function normalize(raw) {
     const m = parseMonth(r['Month'] ?? pick(r, /month|tháng/i));
     const q = +(r['Sell Plan'] ?? pick(r, /sell.*plan|plan/i)) || 0;
     if (skipSku(sku) || !m) return;
-    const g = grp(normLoc(r['WH'] ?? pick(r, /WH|kho/i)), sku);
+    const g = grp(getLoc(r), sku);
     g.plan[m] = (g.plan[m] || 0) + q;
     
     const chnl = String(r['Channel'] ?? pick(r, /channel|kênh/i) ?? '').trim();
@@ -520,7 +532,7 @@ function normalize(raw) {
     const m = master.get(sku), u = String(r['Unit of Measure'] ?? pick(r, /unit|đơn vị/i) ?? '').trim().toUpperCase();
     const ctn = m ? q / (m.ea[eaLevel(u)] || 1) : q;
     const mo = monthOf(t);
-    const loc = normLoc(r['HQ'] ?? pick(r, /hq|kho/i));
+    const loc = getLoc(r);
     const g = grp(loc, sku);
     g.qad[mo] = (g.qad[mo] || 0) + ctn;
     
