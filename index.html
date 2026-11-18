@@ -867,8 +867,8 @@ function render() {
             <td class="text-center">${fmtD(d.end)}</td>
             ${num(d.plan)}
             ${num(d.actualCus)}
-            <td class="n" style="background-color:${bg}; color:${color}; font-weight:bold; border-radius: 4px;">${achieveText}</td>
             ${remHtml}
+            <td class="n" style="background-color:${bg}; color:${color}; font-weight:bold; border-radius: 4px;">${achieveText}</td>
         </tr>`;
     });
 
@@ -878,8 +878,8 @@ function render() {
         <td colspan="6" style="text-align:right">${subtext}</td>
         <td class="n">${fmt(tPlan)}</td>
         <td class="n">${fmt(tActual)}</td>
-        <td class="n">${(totalPct*100).toFixed(1)}%</td>
         <td class="n" style="${tRem < 0 ? 'color:#ea580c' : ''}">${fmt(tRem)}</td>
+        <td class="n">${(totalPct*100).toFixed(1)}%</td>
     </tr>` : '';
 
     h = `
@@ -910,7 +910,7 @@ function render() {
           <div class="accordion-body p-0">
              <div class="wrap" style="max-height: 60vh; border-radius:0; box-shadow:none;">
                 <table>
-                    <tr><th>${tt('thWh')}</th><th>${tt('thProd')}</th><th>${tt('thLine')}</th><th>${tt('thCus')}</th><th class="text-center">${tt('thStart')}</th><th class="text-center">${tt('thEnd')}</th><th class="n">${tt('thPlan')}</th><th class="n">${tt('thActual')}</th><th class="n">${tt('pctAchieved')}</th><th class="n">${tt('thRem')}</th></tr>
+                    <tr><th>${tt('thWh')}</th><th>${tt('thProd')}</th><th>${tt('thLine')}</th><th>${tt('thCus')}</th><th class="text-center">${tt('thStart')}</th><th class="text-center">${tt('thEnd')}</th><th class="n">${tt('thPlan')}</th><th class="n">${tt('thActual')}</th><th class="n">${tt('thRem')}</th><th class="n">${tt('pctAchieved')}</th></tr>
                     ${body || `<tr><td colspan="10" class="empty">${tt('empty')}</td></tr>`}
                     ${subRow}
                 </table>
@@ -1063,7 +1063,35 @@ function render() {
 
     let validKeys = Object.keys(window.chartState).filter(k => { let d = window.chartState[k].doughnutData; return (d.b30 + d.b50 + d.b60 + d.b70 + d.bgt70) > 0; });
     let chartHtml = `<div class="chart-grid ${validKeys.length === 1 ? 'single-chart' : ''}">`;
-    validKeys.forEach((k, idx) => { window.chartState[k].idx = idx; chartHtml += `<div class="chart-wrapper"><strong style="font-size:14px;text-transform:uppercase;color:var(--fg); margin-bottom: 10px;">${k}</strong><div class="canvas-container"><canvas id="donutChart${idx}"></canvas></div></div>`; });
+    validKeys.forEach((k, idx) => { 
+        window.chartState[k].idx = idx; 
+        let isSingle = validKeys.length === 1;
+        let extraStyle = isSingle ? 'max-width: 320px; max-height: 320px; margin: 0 auto;' : '';
+        let legendHtml = '';
+        
+        if (isSingle) {
+            let d = window.chartState[k].doughnutData;
+            let total = d.b30 + d.b50 + d.b60 + d.b70 + d.bgt70;
+            if (total > 0) {
+                legendHtml = `
+                <div style="margin-top: 20px; width: 100%; max-width: 320px; margin-left: auto; margin-right: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow);">
+                        <tr style="background: var(--ac2); color: var(--ac); font-weight: bold;">
+                            <th style="padding: 8px; border-bottom: 1px solid var(--line); text-align: left;">Shelf life</th>
+                            <th style="padding: 8px; border-bottom: 1px solid var(--line); text-align: right;">% (Total: ${fmt(total)})</th>
+                        </tr>
+                        ${d.b30 > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid var(--line);"><span style="display:inline-block;width:12px;height:12px;background:#d9232d;margin-right:6px;border-radius:2px;vertical-align:middle;"></span>&lt;30%</td><td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line);">${(d.b30/total*100).toFixed(1)}%</td></tr>` : ''}
+                        ${d.b50 > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid var(--line);"><span style="display:inline-block;width:12px;height:12px;background:#fd7e14;margin-right:6px;border-radius:2px;vertical-align:middle;"></span>30-50%</td><td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line);">${(d.b50/total*100).toFixed(1)}%</td></tr>` : ''}
+                        ${d.b60 > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid var(--line);"><span style="display:inline-block;width:12px;height:12px;background:#ffc107;margin-right:6px;border-radius:2px;vertical-align:middle;"></span>50-60%</td><td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line);">${(d.b60/total*100).toFixed(1)}%</td></tr>` : ''}
+                        ${d.b70 > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid var(--line);"><span style="display:inline-block;width:12px;height:12px;background:#28a745;margin-right:6px;border-radius:2px;vertical-align:middle;"></span>60-70%</td><td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line);">${(d.b70/total*100).toFixed(1)}%</td></tr>` : ''}
+                        ${d.bgt70 > 0 ? `<tr><td style="padding: 6px 8px; border-bottom: 1px solid var(--line);"><span style="display:inline-block;width:12px;height:12px;background:#20c997;margin-right:6px;border-radius:2px;vertical-align:middle;"></span>&gt;70%</td><td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--line);">${(d.bgt70/total*100).toFixed(1)}%</td></tr>` : ''}
+                    </table>
+                </div>`;
+            }
+        }
+
+        chartHtml += `<div class="chart-wrapper"><strong style="font-size:14px;text-transform:uppercase;color:var(--fg); margin-bottom: 10px;">${k}</strong><div class="canvas-container" style="${extraStyle}"><canvas id="donutChart${idx}"></canvas></div>${legendHtml}</div>`; 
+    });
     chartHtml += `</div>`;
 
     h = `
