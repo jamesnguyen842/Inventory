@@ -961,6 +961,7 @@ function render() {
               }
            }
         }));
+
         let labelsLine = Object.keys(lineData);
         let actualLineArr = labelsLine.map(k => lineData[k].actual);
         let remLineArr = labelsLine.map(k => Math.max(0, lineData[k].plan - lineData[k].actual));
