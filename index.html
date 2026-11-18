@@ -935,7 +935,7 @@ function render() {
         let actualCusArr = labelsCus.map(k => cusData[k].actual);
         let remCusArr = labelsCus.map(k => Math.max(0, cusData[k].plan - cusData[k].actual));
 
-        window.myMtCharts.push(new Chart(ctxCus, {
+       window.myMtCharts.push(new Chart(ctxCus, {
            type: 'bar',
            data: {
               labels: labelsCus,
@@ -956,12 +956,11 @@ function render() {
                   }
               },
               scales: { 
-                 x: { title: { display: true, text: tt('qtyCartonsScale') } }, 
+                 x: { stacked: true, title: { display: true, text: tt('qtyCartonsScale') } }, // Bật tính năng stacked cho trục X
                  y: { stacked: true, ticks: { font: { size: 9 }, autoSkip: false } } 
               }
            }
         }));
-
         let labelsLine = Object.keys(lineData);
         let actualLineArr = labelsLine.map(k => lineData[k].actual);
         let remLineArr = labelsLine.map(k => Math.max(0, lineData[k].plan - lineData[k].actual));
