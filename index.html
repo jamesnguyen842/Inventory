@@ -105,12 +105,6 @@ td.n { text-align: right; font-variant-numeric: tabular-nums; font-weight: 500; 
 /* ========================================================
    CSS SAU ĐĂNG NHẬP & LAYOUT 65-35 CHO CURRENT INVENTORY
    ======================================================== */
-body.logged-in { background: url('assets/img/hero-carousel/hero-carousel-1.png') no-repeat center center fixed !important; background-size: cover !important; }
-body.logged-in header { background: transparent !important; border-bottom: 1px solid rgba(255,255,255,0.3) !important; box-shadow: none !important; }
-body.logged-in header h1 { color: #fff !important; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
-body.logged-in header button { background: rgba(255,255,255,0.2); color: #fff; border-color: rgba(255,255,255,0.5); }
-body.logged-in header button:hover { background: rgba(255,255,255,0.4); }
-body.logged-in header button.on { background: var(--ac); color: #fff; border-color: var(--ac); }
 
 body.logged-in .tabs-outer, body.logged-in main { background: var(--bg) !important; overflow-x: hidden; }
 .controls-wrapper { display: flex; flex-wrap: wrap; gap: 10px; background: var(--ac2) !important; align-items: center; justify-content: space-between; padding: 10px 20px; border-bottom: 1px solid var(--line); }
@@ -129,6 +123,33 @@ body.logged-in .tabs-outer, body.logged-in main { background: var(--bg) !importa
 .chart-grid.single-chart { grid-template-columns: minmax(0, 1fr); }
 .chart-wrapper { display: flex; flex-direction: column; align-items: center; width: 100%; height: 100%; min-height: 0; min-width: 0; }
 .canvas-container { position: relative; width: 100%; flex: 1; min-height: 0; min-width: 0; }
+  #app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 24px;
+  min-height: auto;
+}
+
+#view, .animated-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.wrap {
+  max-height: calc(100vh - 210px);
+}
+
+.inv-layout {
+  height: calc(100vh - 210px);
+}
 </style>
 </head>
 <body>
@@ -177,9 +198,6 @@ body.logged-in .tabs-outer, body.logged-in main { background: var(--bg) !importa
   
   <main><div id="view"></div></main>
 
-  <footer style="text-align: center; padding: 15px; color: #666; font-size: 13px; background: transparent; border-top: 1px solid var(--line);" data-t="footerTxt">
-    Bản quyền thuộc về © Thai Corp International (Vietnam) Co., Ltd. Bảo lưu mọi quyền.
-  </footer>
 </div>
 
 <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
