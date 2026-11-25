@@ -132,38 +132,7 @@ body.logged-in .tabs-outer, body.logged-in main { background: var(--bg) !importa
 </style>
 </head>
 <body>
-
-<section id="login" class="d-flex align-items-center justify-content-center" style="background: url('assets/img/hero-carousel/hero-carousel-1.png') no-repeat center center; background-size: cover; height: 100vh; position: relative;">
-  <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.6);"></div>
-  <div class="container position-relative" data-aos="fade-up" data-aos-delay="100">
-    <div class="row justify-content-center">
-      <div class="col-lg-4 col-md-6">
-        <div class="card p-4 shadow-lg border-0" style="background: rgba(255, 255, 255, 0.95); border-radius: 24px;">
-          <div class="text-center mb-2">
-            <img src="logo.png" alt="Logo" style="max-height: 60px;" onerror="this.style.display='none'">
-          </div>
-          <h2 class="text-center mb-1" style="font-family: 'Raleway', sans-serif; font-weight: 700; color: #34645c;" data-t="welcome">Chào mừng!</h2>
-          <p class="text-center mb-4" style="color: gray; font-size: 12px; margin-top: 0;" data-t="loginDesc">Vui lòng đăng nhập để tiếp tục xem báo cáo</p>
-          
-          <div class="mb-3">
-            <input id="em" type="email" class="form-control px-3 py-2" placeholder="Email" autocomplete="username">
-          </div>
-          <div class="mb-4">
-            <input id="pw" type="password" class="form-control px-3 py-2" placeholder="Password" autocomplete="current-password">
-          </div>
-          
-          <div class="d-grid">
-            <button class="btn btn-success py-2" id="btnLogin" style="background-color: #34645c; border-color: #34645c; border-radius: 50px; font-weight: 600; font-family: 'Raleway', sans-serif;" data-t="loginBtn">
-              Đăng nhập
-            </button>
-          </div>
-          <div class="err text-center mt-2" id="loginErr" style="color: #d9232d; font-size: 13px; min-height: 1.2em;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
+  
 <div id="app" hidden>
   <header>
     <h1 id="ttl"></h1>
@@ -1148,8 +1117,6 @@ function setLang(l) {
   
   $('#fProd').placeholder = l === 'vi' ? 'Gõ tên SP...' : 'Type product name...';
   $('#fCus').placeholder = l === 'vi' ? 'Gõ tên khách...' : 'Type customer name...';
-  $('#em').placeholder = l === 'vi' ? 'Email' : 'Email';
-  $('#pw').placeholder = l === 'vi' ? 'Mật khẩu' : 'Password';
 
   let activeSels = $$('.folder-sel');
   activeSels.forEach(sel => {
@@ -1181,21 +1148,45 @@ async function readXlsx(folder, file) {
   return (cache[path] = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null }));
 }
 
-async function login() {
-  $('#loginErr').textContent = '';
+const HOME_URL = 'https://jamesnguyen842.github.io/Summary-MKT-Report/';
+
+async function checkAuth() {
   try {
     sb = sb || supabase.createClient(CFG.url, CFG.key);
-    const { error } = await sb.auth.signInWithPassword({ email: $('#em').value.trim(), password: $('#pw').value });
-    if (error) throw error;
-    $('#login').hidden = true; $('#app').hidden = false; 
-    document.body.classList.add('logged-in');
-    setLang(lang); $('#dataStatus').textContent = tt('loadingFolders'); $('#view').innerHTML = `<div class="empty">${tt('empty')}</div>`;
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) {
+      window.location.replace(HOME_URL);
+      return;
+    }
 
-    const { data: list, err } = await sb.storage.from(CFG.bucket).list('', { limit: 1000 });
-    if (err) throw new Error('Không lấy được danh sách: ' + err.message);
-    ALL_FOLDERS = (list || []).map(i => { const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/); if (m) return { name: i.name, d: +m[1], m: +m[2], y: +m[3], isEOM: +m[1] === new Date(+m[3], +m[2], 0).getDate() }; return null; }).filter(Boolean).sort((a, b) => b.y - a.y || b.m - a.m || b.d - a.d);
-    $('#dataStatus').textContent = ''; addFolderSelect(); 
-  } catch (e) { $('#loginErr').textContent = tt('lerr') + (e.message || e); }
+    sb.auth.onAuthStateChange((event, sess) => {
+      if (event === 'SIGNED_OUT' || !sess) {
+        window.location.replace(HOME_URL);
+      }
+    });
+
+    $('#app').hidden = false;
+    document.body.classList.add('logged-in');
+    setLang(lang);
+    $('#dataStatus').textContent = tt('loadingFolders');
+    $('#view').innerHTML = `<div class="empty">${tt('empty')}</div>`;
+
+    const { data: list, error } = await sb.storage.from(CFG.bucket).list('', { limit: 1000 });
+    if (error) throw new Error('Không lấy được danh sách: ' + error.message);
+    ALL_FOLDERS = (list || [])
+      .map(i => {
+        const m = i.name.match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+        if (m) return { name: i.name, d: +m[1], m: +m[2], y: +m[3], isEOM: +m[1] === new Date(+m[3], +m[2], 0).getDate() };
+        return null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.y - a.y || b.m - a.m || b.d - a.d);
+
+    $('#dataStatus').textContent = '';
+    addFolderSelect();
+  } catch (e) {
+    $('#dataStatus').textContent = 'Lỗi: ' + (e.message || e);
+  }
 }
 
 function addFolderSelect() { const sel = document.createElement('select'); sel.className = 'folder-sel'; sel.innerHTML = `<option value="">-- ${tt('selDatePlaceholder')} --</option>` + ALL_FOLDERS.map(f => `<option value="${f.name}">${f.name}</option>`).join(''); $('#folder-container').appendChild(sel); }  
@@ -1233,9 +1224,11 @@ async function confirmLoadData() {
 }
 
 /* ============ SỰ KIỆN ============ */
-$('#btnLogin').onclick = login;
-$('#pw').onkeydown = e => { if (e.key === 'Enter') login(); };
-$('#btnOut').onclick = async () => { try { await sb?.auth.signOut(); } catch (e) {} location.reload(); };
+  $('#btnOut').onclick = async () => {
+  try { await sb?.auth.signOut(); } catch (e) {}
+  window.location.replace(HOME_URL);
+};
+checkAuth();
 $('#lvi').onclick = () => setLang('vi'); $('#len').onclick = () => setLang('en');
 $('#btnAddFolder').onclick = addFolderSelect; $('#btnLoadData').onclick = confirmLoadData;
 $('#fYear').onchange = (e) => { CURRENT_YEAR = +e.target.value; render(); };
